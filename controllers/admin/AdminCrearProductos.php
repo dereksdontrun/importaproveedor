@@ -64,10 +64,25 @@ class AdminCrearProductosController extends ModuleAdminController {
         $otros_fabricantes = array(array('id_manufacturer'=> 34, 'name'=> 'Otros Fabricantes'));
         $manufacturers = array_merge($otros_fabricantes, $manufacturers);
 
-        //sacamos los grupos de impuestos
+        //sacamos los grupos de impuestos, getTaxRulesGroups($only_active = true)
         $taxes = TaxRulesGroup::getTaxRulesGroups();
-        //ponemos por defecto ES standar 21%
-        $es_21 = array(array('id_tax_rules_group'=> 41, 'name'=> 'ES Standard rate (21%)'));
+        //ponemos por defecto ES standar 21%, para saber su id_tax_rules_group lo tenemos que obtener por BD ya que a veces cambia el id
+        $sql_tax_21 = 'SELECT trg.id_tax_rules_group AS id_tax_rules_group, trg.name AS name
+        FROM lafrips_tax_rules_group trg
+        JOIN lafrips_tax_rule tar ON tar.id_tax_rules_group = trg.id_tax_rules_group
+        JOIN lafrips_tax tax ON tax.id_tax = tar.id_tax
+        WHERE trg.active = 1
+        AND trg.deleted = 0
+        AND tar.id_country = 6 
+        AND tax.active = 1
+        AND tax.deleted = 0
+        AND tax.rate = 21';
+
+        $tax_21 = Db::getInstance()->getRow($sql_tax_21);
+        $id_tax_rule_21 = $tax_21['id_tax_rules_group'];
+        $name_tax_rule_21 = $tax_21['name'];
+
+        $es_21 = array(array('id_tax_rules_group'=> $id_tax_rule_21, 'name'=> $name_tax_rule_21));
         $taxes = array_merge($es_21, $taxes);
 
         //sacamos features de Tipo de producto id 8 (getFeature($id_lang, $id_feature)) ordenando la sql por value pero que saque primero 'Otros' id 155
