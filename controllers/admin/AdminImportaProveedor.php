@@ -636,9 +636,22 @@ class AdminImportaProveedorController extends ModuleAdminController {
 
             //Creamos los productos desactivados por defecto
             $product->active = 0;
-            $product->id_manufacturer = $id_fabricante;
-            //por defecto tax 21% id 41, habrá que revisar si son libros o comida
-            $product->id_tax_rules_group = 41;
+            $product->id_manufacturer = $id_fabricante;            
+            //ponemos por defecto ES standar 21%, para saber su id_tax_rules_group lo tenemos que obtener por BD ya que a veces cambia el id
+            $sql_tax_21 = 'SELECT trg.id_tax_rules_group AS id_tax_rules_group
+            FROM lafrips_tax_rules_group trg
+            JOIN lafrips_tax_rule tar ON tar.id_tax_rules_group = trg.id_tax_rules_group
+            JOIN lafrips_tax tax ON tax.id_tax = tar.id_tax
+            WHERE trg.active = 1
+            AND trg.deleted = 0
+            AND tar.id_country = 6 
+            AND tax.active = 1
+            AND tax.deleted = 0
+            AND tax.rate = 21';
+
+            $tax_21 = Db::getInstance()->getValue($sql_tax_21);           
+
+            $product->id_tax_rules_group = $tax_21;
             $product->id_supplier = $id_proveedor;
             $product->ean13 = $ean;
             //La referencia de proveedor solo la añadimos por proveedor, no en lafrips_product
@@ -1132,8 +1145,21 @@ class AdminImportaProveedorController extends ModuleAdminController {
             //Creamos los productos desactivados por defecto
             $product->active = 0;
             $product->id_manufacturer = $id_fabricante;
-            //por defecto tax 21% id 41
-            $product->id_tax_rules_group = 41;
+            //ponemos por defecto ES standar 21%, para saber su id_tax_rules_group lo tenemos que obtener por BD ya que a veces cambia el id
+            $sql_tax_21 = 'SELECT trg.id_tax_rules_group AS id_tax_rules_group
+            FROM lafrips_tax_rules_group trg
+            JOIN lafrips_tax_rule tar ON tar.id_tax_rules_group = trg.id_tax_rules_group
+            JOIN lafrips_tax tax ON tax.id_tax = tar.id_tax
+            WHERE trg.active = 1
+            AND trg.deleted = 0
+            AND tar.id_country = 6 
+            AND tax.active = 1
+            AND tax.deleted = 0
+            AND tax.rate = 21';
+
+            $tax_21 = Db::getInstance()->getValue($sql_tax_21);
+
+            $product->id_tax_rules_group = $tax_21;
             $product->id_supplier = $id_supplier;
 
             //al ser producto combinaciones, el producto base no tiene ean ni referencia de proveedor
