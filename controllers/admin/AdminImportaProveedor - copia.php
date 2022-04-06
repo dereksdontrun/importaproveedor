@@ -110,26 +110,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
                     'name' => 'ean',
                     'required' => false, 
                     'hint' => 'Introduce el ean del producto a buscar',
-                    ),  
-                array(
-                    'type' => 'switch',                        
-                    'label' => $this->l('Ocultar productos existentes'),
-                    'name' => 'ocultar_existentes',
-                    // 'is_bool' => true,
-                    'desc' => $this->l('Mostrar solo productos de proveedores que no existen en Prestashop'),
-                    'values' => array(
-                        array(
-                            'id' => 'active_on',
-                            'value' => 1,
-                            'label' => $this->l('Enabled')
-                        ),
-                        array(
-                            'id' => 'active_off',
-                            'value' => 0,
-                            'label' => $this->l('Disabled')
-                        )
-                    ),
-                ),                          
+                    ),               
                 ),
             'reset' => array('title' => 'Limpiar', 'icon' => 'process-icon-eraser icon-eraser'),   
             'submit' => array('title' => 'Buscar', 'icon' => 'process-icon-search icon-search'),            
@@ -153,8 +134,6 @@ class AdminImportaProveedorController extends ModuleAdminController {
         $pattern_ean = trim(pSQL(Tools::getValue('ean', false)));
         $id_supplier = (int) Tools::getValue('id_supplier', false);
         $pattern_nombre = trim(pSQL(Tools::getValue('nombre_producto', false)));
-        //04/04/2022 mostrar o no los productos de los catálogos que ya existen en prestashop. true es ocultar, false es mostrarlos
-        $ocultar_existentes = Tools::getValue('ocultar_existentes', false);        
 
         if ((!$pattern_nombre || $pattern_nombre == '')&&(!$pattern_referencia || $pattern_referencia == '')&&(!$pattern_ean || $pattern_ean == '')){               
            // $errors[] = 'Introduce lo que estás buscando';
@@ -249,8 +228,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
         $resultado = Db::getInstance()->executeS($busqueda);
 
         //Vamos a buscar en cada línea del resultado de la query, si la referencia de proveedor o el ean o ambos de los productos resultado de la consulta se encuentran ya en algún o algunos productos en Prestashop, y si es así los añadiremos a $resultado para pasarlo por json y ajax. También vamos a buscar el ean si lo hay en la tabla import_catalogos para mostrar si el producto con ese ean lo tiene algún otro proveedor.
-        // 04/04/2022 Si el switch se marcó como ocultar productos existentes evitaremos los que encontremos si ean o referencia en prestashop. Hacemos el foreach key=>value para poder hacer unset del array con el key
-        foreach ($resultado as $key => &$linea) {                   
+        foreach ($resultado as &$linea) {                   
             //Si no se selecciona proveedor buscará en todos
             if ($id_supplier !== 0){
                 $proveedor_select = ' AND id_supplier ='.$id_supplier;
@@ -264,8 +242,8 @@ class AdminImportaProveedorController extends ModuleAdminController {
             $busca_ref_prov = "SELECT GROUP_CONCAT(DISTINCT id_product SEPARATOR '|') AS existentes FROM lafrips_product_supplier 
                 WHERE product_supplier_reference = '".$referencia."' ".$proveedor_select." ;";  
             
-            $existentes_referencia = Db::getInstance()->executeS($busca_ref_prov);             
-
+            $existentes_referencia = Db::getInstance()->executeS($busca_ref_prov); 
+            
             //Guardamos el resultado en la línea 
             $linea['prestashop_ref_prov'] = $existentes_referencia[0]['existentes'];  
 
@@ -291,15 +269,6 @@ class AdminImportaProveedorController extends ModuleAdminController {
                 $linea['prestashop_ean'] = $existentes_ean[0]['existentes']; 
             }else{
                 $linea['prestashop_ean'] = null;
-            }
-
-            //06/04/2022 si en el front se seleccionó el switch para ocultar los productos que ya existen, $ocultar_existentes vale 1, hacemos unset de está línea de producto para sacarla del array de productos a mostrar cuando las select que buscan referencias de producto o ean den resultado, implicando que el producto ya existe
-            if ($ocultar_existentes) {
-                if ($linea['prestashop_ref_prov'] != null || $linea['prestashop_ean']  != null) {
-                    //si hay info de producto existente encontrado por la referencia o el ean, eliminamos la línea y pasamos a la siguiente
-                    unset($resultado[$key]); 
-                    continue;
-                }
             }
 
             //Para el proceso de agregar proveedor a productos que ya existan (coincide ean) comprobamos si el ean lo tiene un solo producto o más y también si el ean es de producto o de atributo. Si lo comparte más de un producto no permitiremos agregar el proveedor mientras sea así por no saber a cual, y si es de atributo, tampoco.
@@ -378,6 +347,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
             }
 
         }
+        
 
         //die(Tools::jsonEncode(array('error'=> true, 'message'=>$busqueda)));    
         //console.log($resultado);        

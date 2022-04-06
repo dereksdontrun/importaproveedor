@@ -8,8 +8,6 @@
 $(function(){
    $('#product_form').on('submit',function(event){
        event.preventDefault();
-       
-        //    console.log(document.querySelector('input[name="ocultar_existentes"]:checked').value);
        //dataObj se crea ={} porque es un objeto. Con =[] sería array
        var dataObj = {};
        //declaramos aquí también el array de ids de producto (input hidden en form.tpl) 
@@ -17,15 +15,8 @@ $(function(){
        
        //guardamos en dataObj el contenido de select e inputs del formulario
        $(this).find('input, select').each(function(index, elt){
-           //04/04/2022 de esta forma no parece recoger el valor seleccionado en el switch (radio button) para mostrar o no productos que ya existen, no tengo tiempo de averiguar lo que ocurre así que ñapa, cuando .find() pasa por ele elmento de nombre ocultar_existentes metemos a dataObj el valor que tiene seleccionado
-           if (elt.name == "ocultar_existentes") {
-                dataObj[elt.name] = document.querySelector('input[name="ocultar_existentes"]:checked').value;
-           } else {
-            dataObj[elt.name] = elt.value;
-           }           
+           dataObj[elt.name] = elt.value;
        });
-
-    //    console.dir(dataObj);
 
        $.ajax({
         url: 'index.php?controller=AdminImportaProveedor' + '&token=' + token + "&action=get_products" + '&ajax=1' + '&rand=' + new Date().getTime(),
