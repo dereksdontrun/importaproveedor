@@ -286,7 +286,7 @@
 
             //contar el número de productos (ids) en el array para mostrar en la lista, saldrá en pantalla la última cantidad, se vacia desde back.js
             if(product_ids.length > 1){
-                $('#num_prods').html('<span>'+ product_ids.length + ' productos</span><span style="font-size:small;"> (100 max)</span>');
+                $('#num_prods').html('<span>'+ product_ids.length + ' productos</span>');
             }else{
                 $('#num_prods').text(product_ids.length + ' producto');
             }

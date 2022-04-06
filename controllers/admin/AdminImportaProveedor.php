@@ -68,6 +68,14 @@ class AdminImportaProveedorController extends ModuleAdminController {
         $proveedor_vacio = array(array('id_supplier'=> 0, 'name'=> 'Selecciona proveedor'));
         $suppliers = array_merge($proveedor_vacio, $suppliers);
 
+        //06/04/2022 limite de productos a mostrar. añadimos un select para decidir si mostramos 100 - 300 - 500 productos
+        $limite_productos = array(
+            array('id_limite'=> 30, 'name'=> 30),
+            array('id_limite'=> 100, 'name'=> 100),
+            array('id_limite'=> 300, 'name'=> 300),
+            array('id_limite'=> 500, 'name'=> 500),
+        );
+
         $this->fields_form = array(
             'legend' => array(
                 'title' => 'BUSCAR PRODUCTOS EN CATÁLOGO DE PROVEEDOR',
@@ -129,7 +137,20 @@ class AdminImportaProveedorController extends ModuleAdminController {
                             'label' => $this->l('Disabled')
                         )
                     ),
-                ),                          
+                ), 
+                //limite de productos a mostrar. Tiene trampa, yo sacaré siempre hasta 1000, pero mostraré los que se seleccione. Esto es debido a que primero saco los productos y después, si hay que ocultar los que ya existen, los quito. De modo que si marcas mostrar 100 y los 100 primeros ya existen y está marcado ocultar existentes, no saldría ninguno, a pesar de que puede haber cientos, solo que no salen en la select inicial que tiene limit 100
+                array(
+                    'type' => 'select',
+                    'label' => 'Límite productos',
+                    'name' => 'limite_productos',
+                    'required' => true,
+                    'options' => array(
+                        'query' => $limite_productos,
+                        'id' => 'id_limite',
+                        'name' => 'name'
+                    ),
+                    'hint' => 'Selecciona el número máximo de productos a mostrar',
+                ),                         
                 ),
             'reset' => array('title' => 'Limpiar', 'icon' => 'process-icon-eraser icon-eraser'),   
             'submit' => array('title' => 'Buscar', 'icon' => 'process-icon-search icon-search'),            
@@ -154,8 +175,9 @@ class AdminImportaProveedorController extends ModuleAdminController {
         $id_supplier = (int) Tools::getValue('id_supplier', false);
         $pattern_nombre = trim(pSQL(Tools::getValue('nombre_producto', false)));
         //04/04/2022 mostrar o no los productos de los catálogos que ya existen en prestashop. true es ocultar, false es mostrarlos
-        $ocultar_existentes = Tools::getValue('ocultar_existentes', false);        
-
+        $ocultar_existentes = Tools::getValue('ocultar_existentes', false); 
+        $limite_productos = (int) Tools::getValue('limite_productos', false);       
+        
         if ((!$pattern_nombre || $pattern_nombre == '')&&(!$pattern_referencia || $pattern_referencia == '')&&(!$pattern_ean || $pattern_ean == '')){               
            // $errors[] = 'Introduce lo que estás buscando';
             die(Tools::jsonEncode(array('error'=> true, 'message'=>'Introduce lo que estás buscando')));
@@ -238,8 +260,13 @@ class AdminImportaProveedorController extends ModuleAdminController {
 
         $condicion .= $proveedor_select;
 
-        //Añadimos que muestre un máximo de 100 productos
-        $limit = 100;
+        //Añadimos que busque un máximo de 1000 productos si se ha marcado ocultar existentes, si no el limit será igual a $limite_productos. Después, en el foreach por cada línea, nos aseguramos de que muestre un máximo de $limite_productos. Esto es porque al poner el límite a la select, si seleccionamos ocultar existentes se puede dar incluso que con este limit todos existan y no se muestre ninguno porque los no existentes aparecen después
+        if ($ocultar_existentes) {
+            $limit = 1000;
+        } else {
+            $limit = $limite_productos; 
+        }
+        
 
         $busqueda = 'SELECT id_import_catalogos, id_proveedor, referencia_proveedor, ean, nombre, nombre_proveedor, descripcion, precio, url_producto, url_imagen, disponibilidad, fecha_llegada, atributo, eliminado
             FROM frik_import_catalogos 
@@ -250,7 +277,14 @@ class AdminImportaProveedorController extends ModuleAdminController {
 
         //Vamos a buscar en cada línea del resultado de la query, si la referencia de proveedor o el ean o ambos de los productos resultado de la consulta se encuentran ya en algún o algunos productos en Prestashop, y si es así los añadiremos a $resultado para pasarlo por json y ajax. También vamos a buscar el ean si lo hay en la tabla import_catalogos para mostrar si el producto con ese ean lo tiene algún otro proveedor.
         // 04/04/2022 Si el switch se marcó como ocultar productos existentes evitaremos los que encontremos si ean o referencia en prestashop. Hacemos el foreach key=>value para poder hacer unset del array con el key
-        foreach ($resultado as $key => &$linea) {                   
+        //contaremos los productos a mostrar hasta un máximo de  $limite_productos
+        $contador = 0;
+        foreach ($resultado as $key => &$linea) {  
+            if ($contador >=  $limite_productos) {
+                //una vez alcanzado el límite de productos a mostrar, hacemos unset del resto de líneas en $resultado
+                unset($resultado[$key]); 
+                continue;
+            }              
             //Si no se selecciona proveedor buscará en todos
             if ($id_supplier !== 0){
                 $proveedor_select = ' AND id_supplier ='.$id_supplier;
@@ -377,6 +411,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
                 $linea['url_imagen'] = $url_imagen;
             }
 
+            $contador++;
         }
 
         //die(Tools::jsonEncode(array('error'=> true, 'message'=>$busqueda)));    

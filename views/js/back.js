@@ -21,7 +21,7 @@ $(function(){
            if (elt.name == "ocultar_existentes") {
                 dataObj[elt.name] = document.querySelector('input[name="ocultar_existentes"]:checked').value;
            } else {
-            dataObj[elt.name] = elt.value;
+                dataObj[elt.name] = elt.value;
            }           
        });
 
