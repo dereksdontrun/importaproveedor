@@ -228,12 +228,6 @@ class AdminImportaProveedorController extends ModuleAdminController {
 
         //Si pone ean 
         if ($pattern_ean !== ''){
-            //20/06/2022 Se da un problema recurrente, que si el usuario busca un ean tal que 01234567890123, es decir, 13 cifras pero con 0 en el inicio, es fácil que se corresponda al mismo número pero sin el 0 y de 12 cifras para un proveedor y el de 13 para otro. Eso no es problema si la búsqueda es del ean de 12 cifras al poner LIKE, ya que sustituye el primer carácter, pero no funcionará si ponemos el 0 en la búsqueda y el encontrado no tiene el 0. Vamos a analizar los ean y si tiene 13 cifras y además la primera es 0 , lo sustituimos en la búsqueda por el ean sin el 0 inicial.
-            if (strlen($pattern_ean) == 13 && substr($pattern_ean,0,1) == 0) {
-                //el ean introducido tiene 13 caracteres y el primero es 0, lo cambiamos por el mismo sin el 0
-                $pattern_ean = substr($pattern_ean,1,12);
-            }
-
             $ean_select = ' ean LIKE \'%'.$pattern_ean.'%\' ';
         }else{
             $ean_select = '';
@@ -314,11 +308,6 @@ class AdminImportaProveedorController extends ModuleAdminController {
 
             //Si el producto del proveedor no tiene ean nos saltamos este paso y mostrará 'No'
             if ((!empty($ean))&&($ean !== '')){
-                //20/06/2022 Se da un problema recurrente, que si el usuario busca un ean tal que 01234567890123, es decir, 13 cifras pero con 0 en el inicio, es fácil que se corresponda al mismo número pero sin el 0 y de 12 cifras para un proveedor y el de 13 para otro. Eso no es problema si la búsqueda es del ean de 12 cifras al poner LIKE, ya que sustituye el primer carácter, pero no funcionará si ponemos el 0 en la búsqueda y el encontrado no tiene el 0. Vamos a analizar los ean y si tiene 13 cifras y además la primera es 0 , lo sustituimos en la búsqueda por el ean sin el 0 inicial.
-                if (strlen($ean) == 13 && substr($ean,0,1) == 0) {
-                    //el ean introducido tiene 13 caracteres y el primero es 0, lo cambiamos por el mismo sin el 0
-                    $ean = substr($ean,1,12);
-                }
                 //buscamos el ean en la tabla product y en la tabla product_attribute, ponemos la búsqueda con LIKE para evitar los productos con ean de 12 cifras a las que algunos añaden un 0 delante
                 $busca_ean = "SELECT GROUP_CONCAT(DISTINCT id_product SEPARATOR '|') AS existentes FROM
                                 ((SELECT id_product
@@ -352,7 +341,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
                 //buscamos el ean en la tabla product
                 $busca_ean_prod = "SELECT id_product
                                 FROM lafrips_product
-                                WHERE ean13 LIKE '%".$ean."%';";
+                                WHERE ean13 = ".$ean;  
 
                 $existentes_ean = Db::getInstance()->executeS($busca_ean_prod);                
 
@@ -375,7 +364,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
                 //buscamos el ean en la tabla product_attribute
                 $busca_ean_atr = "SELECT id_product
                                 FROM lafrips_product_attribute
-                                WHERE ean13 LIKE '%".$ean."%';";
+                                WHERE ean13 = ".$ean;  
 
                 $existentes_ean_atr = Db::getInstance()->executeS($busca_ean_atr);
 
@@ -889,12 +878,10 @@ class AdminImportaProveedorController extends ModuleAdminController {
             die(Tools::jsonEncode(array('error'=> true, 'message'=>'Hay algún error, el producto no tiene ean')));
         }
         //Buscamos en prestashop el producto con el ean del producto de proveedor, de momento solo en lafrips_product ya que no agregamos atributos
-        //20/06/2022 Se da un problema recurrente, que si el usuario busca un ean tal que 01234567890123, es decir, 13 cifras pero con 0 en el inicio, es fácil que se corresponda al mismo número pero sin el 0 y de 12 cifras para un proveedor y el de 13 para otro. Eso no es problema si la búsqueda es del ean de 12 cifras al poner LIKE, ya que sustituye el primer carácter, pero no funcionará si ponemos el 0 en la búsqueda y el encontrado no tiene el 0. Vamos a analizar los ean y si tiene 13 cifras y además la primera es 0 , lo sustituimos en la búsqueda por el ean sin el 0 inicial.
-        if (strlen($ean_prod_proveedor) == 13 && substr($ean_prod_proveedor,0,1) == 0) {
-            //el ean buscado tiene 13 caracteres y el primero es 0, lo cambiamos por el mismo sin el 0
-            $ean_prod_proveedor = substr($ean_prod_proveedor,1,12);
-        }
-                
+        
+        // $sql_producto_prestashop = 'SELECT id_product
+        //                         FROM lafrips_product
+        //                         WHERE ean13 = '.$ean_prod_proveedor;
         $sql_producto_prestashop = 'SELECT id_product, reference
                                     FROM lafrips_product
                                     WHERE ean13 LIKE "%'.$ean_prod_proveedor.'"';

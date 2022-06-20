@@ -1338,7 +1338,9 @@ class Importaproveedor extends Module
                             $atributo = '';
                         }
 
-                        $precio = str_replace(',','.',trim($campos[10])); //cambiamos , por .                        
+                        $precio = str_replace(',','.',trim($campos[10])); //cambiamos , por .  
+                        //a 26/04/2022 aplicamos 4% descuento
+                        $precio = $precio - ($precio*0.04);                      
                         if (!$precio || $precio == '' || is_null($precio)){
                             $precio = 0;
                         }
@@ -1564,6 +1566,8 @@ class Importaproveedor extends Module
                         }
 
                         $precio = str_replace(',','.',trim($campos[14])); //cambiamos , por .
+                        //a 26/04/2022 aplicamos 30% descuento
+                        $precio = $precio - ($precio*0.3);
                         if (!$precio || $precio == '' || is_null($precio)){
                             $precio = 0;
                         }
@@ -2018,7 +2022,8 @@ class Importaproveedor extends Module
                         $precio = trim($campos[10]);
 
                         //a 21/08/2020 Difuzed nos hace un 10% de descuento en todo, lo aplicamos ya
-                        $precio = $precio - ($precio*0.1);
+                        //a 26/04/2022 cambiado a 7%
+                        $precio = $precio - ($precio*0.07);
                         if (!$precio || $precio == '' || is_null($precio)){
                             $precio = 0;
                         }
