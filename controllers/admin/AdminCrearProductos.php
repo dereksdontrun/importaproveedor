@@ -291,6 +291,7 @@ class AdminCrearProductosController extends ModuleAdminController {
                     'hint' => 'Selecciona la regla de impuestos para el producto',
                 ),  
                 //input para el peso, le meteremos 1.111 por defecto mediante javascript   
+                //02/09/2022 pasamos de 1.111 por defecto a 0.444
                 array(  
                     'type' => 'text',                  
                     'cast' => 'floatval',
@@ -711,6 +712,7 @@ class AdminCrearProductosController extends ModuleAdminController {
 
             $product->reference = $referencia_producto;
             //ponemos peso 1.111 por defecto en el formulario, para crearlos con peso y que este sea fácil de buscar posteriormente, si es que no ha introducido nada
+            //02/09/2022 pasamos de 1.111 por defecto a 0.444
             $product->weight = $peso;
 
             //Creamos los productos desactivados por defecto

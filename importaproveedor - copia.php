@@ -1023,10 +1023,9 @@ class Importaproveedor extends Module
                     $campos = fgetcsv($handle, 0, ";");
                      
                     //para Redstring, si no hay 10 campos es que hay algún error o cambio en el archivo, no lo procesamos y mostramos error
-                    //23/01/2023 Sacamos también Marca al pedir el  catálogo, lo que añade dos columnas al excel, pasa a 12 campos y cambia el orden.
-                    if ((count($campos) != 12)){
+                    if ((count($campos) != 10)){
                         
-                        $error = '<br>Error en archivo de catálogo '.$archivo_escogido.' . Error en número de columnas, no coincide, deberían ser 12 y son '.count($campos); 
+                        $error = '<br>Error en archivo de catálogo '.$archivo_escogido.' . Error en número de columnas, no coincide, deberían ser 9 y son '.count($campos); 
                         $output = '<div class="panel">'.$error.'</div>';
                         
                         return $output;
@@ -1065,41 +1064,34 @@ class Importaproveedor extends Module
                             $descripcion = '';
                         }
 
-                        //23/01/2023 Añadimos la columna Marca como manufacturer
-                        $marca = pSQL(trim($campos[3]));
-                        if (!$marca || $marca == '' || is_null($marca)){
-                            $marca = 'No disponible';
-                        }
-                        $descripcion = 'Marca/Fabricante: '.$marca.'<br><br>'.$descripcion;
-
-                        $url_producto = trim($campos[5]);
+                        $url_producto = trim($campos[3]);
                         if (!$url_producto || $url_producto == '' || is_null($url_producto)){
                             $url_producto = '';
                         }
 
-                        $precio = str_replace(',','.',trim($campos[6])); //cambiamos , por .
+                        $precio = str_replace(',','.',trim($campos[4])); //cambiamos , por .
                         if (!$precio || $precio == '' || is_null($precio)){
                             $precio = 0;
                         }
 
-                        $stock = trim($campos[7]);
+                        $stock = trim($campos[5]);
                         if (!$stock || $stock == '' || is_null($stock)){
                             $stock = 0;
                         }
 
-                        $atributo = trim($campos[8]);
+                        $atributo = trim($campos[6]);
                         if (!$atributo || $atributo == '' || is_null($atributo)){
                             $atributo = '';
                         }
 
                         // $dummy = trim($campos[7]);      campos 6 no tiene nada útil                       
-                        $url_imagen = trim($campos[10]);
+                        $url_imagen = trim($campos[8]);
                         if (!$url_imagen || $url_imagen == '' || is_null($url_imagen)){
                             $url_imagen = '';
                         }
 
                         // 13/05/2021 - hacemos padding a la izquierda a los ean rellenando con 0 hasta 13 cifras los que no las tengan
-                        $ean = trim($campos[11]);
+                        $ean = trim($campos[9]);
                         if (!$ean || $ean == '' || is_null($ean)){
                             $ean = '';
                         } else if (strlen($ean) < 13) {
@@ -1126,8 +1118,8 @@ class Importaproveedor extends Module
 
                         //introducimos la línea en frik_aux_import_catalogos
                         $sql_insert_datos = 'INSERT INTO frik_aux_import_catalogos
-                        (ean, referencia_proveedor, id_proveedor, nombre_proveedor, nombre, descripcion, manufacturer, precio, url_producto, url_imagen, stock, estado, disponibilidad, atributo, date_add) VALUES 
-                        ("'.$ean.'", "'.$referencia.'", '.$id_proveedor.', "'.$nombre_proveedor.'", "'.$nombre.'", "'.$descripcion.'", "'.$marca.'", '.$precio.', "'.$url_producto.'", "'.$url_imagen.'", '.$stock.', "'.$estado.'", '.$disponibilidad.', "'.$atributo.'", NOW())';
+                        (ean, referencia_proveedor, id_proveedor, nombre_proveedor, nombre, descripcion, precio, url_producto, url_imagen, stock, estado, disponibilidad, atributo, date_add) VALUES 
+                        ("'.$ean.'", "'.$referencia.'", '.$id_proveedor.', "'.$nombre_proveedor.'", "'.$nombre.'", "'.$descripcion.'", '.$precio.', "'.$url_producto.'", "'.$url_imagen.'", '.$stock.', "'.$estado.'", '.$disponibilidad.', "'.$atributo.'", NOW())';
     
                         if (!Db::getInstance()->execute($sql_insert_datos)){
                             $mensaje .= '<br><br>Error con referencia '.$referencia.' ean '.$ean.' nombre '.$nombre.' url_producto '.$url_producto.'<br>stock '.$stock.' precio '.$precio.' atributo '.$atributo.' url_imagen '.$url_imagen;

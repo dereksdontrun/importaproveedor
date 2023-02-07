@@ -1023,10 +1023,9 @@ class Importaproveedor extends Module
                     $campos = fgetcsv($handle, 0, ";");
                      
                     //para Redstring, si no hay 10 campos es que hay algún error o cambio en el archivo, no lo procesamos y mostramos error
-                    //23/01/2023 Sacamos también Marca al pedir el  catálogo, lo que añade dos columnas al excel, pasa a 12 campos y cambia el orden.
-                    if ((count($campos) != 12)){
+                    if ((count($campos) != 10)){
                         
-                        $error = '<br>Error en archivo de catálogo '.$archivo_escogido.' . Error en número de columnas, no coincide, deberían ser 12 y son '.count($campos); 
+                        $error = '<br>Error en archivo de catálogo '.$archivo_escogido.' . Error en número de columnas, no coincide, deberían ser 9 y son '.count($campos); 
                         $output = '<div class="panel">'.$error.'</div>';
                         
                         return $output;
@@ -1065,41 +1064,34 @@ class Importaproveedor extends Module
                             $descripcion = '';
                         }
 
-                        //23/01/2023 Añadimos la columna Marca como manufacturer
-                        $marca = pSQL(trim($campos[3]));
-                        if (!$marca || $marca == '' || is_null($marca)){
-                            $marca = 'No disponible';
-                        }
-                        $descripcion = 'Marca/Fabricante: '.$marca.'<br><br>'.$descripcion;
-
-                        $url_producto = trim($campos[5]);
+                        $url_producto = trim($campos[3]);
                         if (!$url_producto || $url_producto == '' || is_null($url_producto)){
                             $url_producto = '';
                         }
 
-                        $precio = str_replace(',','.',trim($campos[6])); //cambiamos , por .
+                        $precio = str_replace(',','.',trim($campos[4])); //cambiamos , por .
                         if (!$precio || $precio == '' || is_null($precio)){
                             $precio = 0;
                         }
 
-                        $stock = trim($campos[7]);
+                        $stock = trim($campos[5]);
                         if (!$stock || $stock == '' || is_null($stock)){
                             $stock = 0;
                         }
 
-                        $atributo = trim($campos[8]);
+                        $atributo = trim($campos[6]);
                         if (!$atributo || $atributo == '' || is_null($atributo)){
                             $atributo = '';
                         }
 
                         // $dummy = trim($campos[7]);      campos 6 no tiene nada útil                       
-                        $url_imagen = trim($campos[10]);
+                        $url_imagen = trim($campos[8]);
                         if (!$url_imagen || $url_imagen == '' || is_null($url_imagen)){
                             $url_imagen = '';
                         }
 
                         // 13/05/2021 - hacemos padding a la izquierda a los ean rellenando con 0 hasta 13 cifras los que no las tengan
-                        $ean = trim($campos[11]);
+                        $ean = trim($campos[9]);
                         if (!$ean || $ean == '' || is_null($ean)){
                             $ean = '';
                         } else if (strlen($ean) < 13) {
@@ -1126,8 +1118,8 @@ class Importaproveedor extends Module
 
                         //introducimos la línea en frik_aux_import_catalogos
                         $sql_insert_datos = 'INSERT INTO frik_aux_import_catalogos
-                        (ean, referencia_proveedor, id_proveedor, nombre_proveedor, nombre, descripcion, manufacturer, precio, url_producto, url_imagen, stock, estado, disponibilidad, atributo, date_add) VALUES 
-                        ("'.$ean.'", "'.$referencia.'", '.$id_proveedor.', "'.$nombre_proveedor.'", "'.$nombre.'", "'.$descripcion.'", "'.$marca.'", '.$precio.', "'.$url_producto.'", "'.$url_imagen.'", '.$stock.', "'.$estado.'", '.$disponibilidad.', "'.$atributo.'", NOW())';
+                        (ean, referencia_proveedor, id_proveedor, nombre_proveedor, nombre, descripcion, precio, url_producto, url_imagen, stock, estado, disponibilidad, atributo, date_add) VALUES 
+                        ("'.$ean.'", "'.$referencia.'", '.$id_proveedor.', "'.$nombre_proveedor.'", "'.$nombre.'", "'.$descripcion.'", '.$precio.', "'.$url_producto.'", "'.$url_imagen.'", '.$stock.', "'.$estado.'", '.$disponibilidad.', "'.$atributo.'", NOW())';
     
                         if (!Db::getInstance()->execute($sql_insert_datos)){
                             $mensaje .= '<br><br>Error con referencia '.$referencia.' ean '.$ean.' nombre '.$nombre.' url_producto '.$url_producto.'<br>stock '.$stock.' precio '.$precio.' atributo '.$atributo.' url_imagen '.$url_imagen;
@@ -1352,20 +1344,13 @@ class Importaproveedor extends Module
                         if (!$precio || $precio == '' || is_null($precio)){
                             $precio = 0;
                         }
-
-                        //19/01/2023 Recogemos el fabricante y lo añadimos a la descripción por ahora
-                        $manufacturer = trim($campos[2]);
-                        if (!$manufacturer || $manufacturer == '' || is_null($manufacturer)){
-                            $manufacturer = 'No disponible.';
-                        }
                                                 
                         //para Abysse:
                         $id_proveedor = 14;
                         $nombre_proveedor = 'Abysse';
                         $url_imagen = 'http://emailing.abyssecorp.com/'.$referencia.'.jpg';
                         $url_producto = 'http://trade.abyssecorp.com/e/en/recherche?controller=search&orderby=date_add&orderway=desc&search_query='.$referencia; 
-                        
-                        $descripcion = 'Fabricante: '.$manufacturer.'<br><br>'.$url_producto;
+                        $descripcion = $url_producto;           
                         
                         //si estado es pre-order no está disponible, si no  es In stock o low stock 
                         $pattern = '/O|order/';                        
@@ -1377,8 +1362,8 @@ class Importaproveedor extends Module
 
                         //introducimos la línea en frik_aux_import_catalogos
                         $sql_insert_datos = 'INSERT INTO frik_aux_import_catalogos
-                        (ean, referencia_proveedor, id_proveedor, nombre_proveedor, nombre, descripcion, manufacturer, precio, url_producto, url_imagen, stock, estado, disponibilidad, atributo, date_add) VALUES 
-                        ("'.$ean.'", "'.$referencia.'", '.$id_proveedor.', "'.$nombre_proveedor.'", "'.$nombre.'", "'.$descripcion.'", "'.$manufacturer.'", '.$precio.', "'.$url_producto.'", "'.$url_imagen.'", '.$stock.', "'.$estado.'", '.$disponibilidad.', "'.$atributo.'", NOW())';
+                        (ean, referencia_proveedor, id_proveedor, nombre_proveedor, nombre, descripcion, precio, url_producto, url_imagen, stock, estado, disponibilidad, atributo, date_add) VALUES 
+                        ("'.$ean.'", "'.$referencia.'", '.$id_proveedor.', "'.$nombre_proveedor.'", "'.$nombre.'", "'.$descripcion.'", '.$precio.', "'.$url_producto.'", "'.$url_imagen.'", '.$stock.', "'.$estado.'", '.$disponibilidad.', "'.$atributo.'", NOW())';
     
                         if (!Db::getInstance()->execute($sql_insert_datos)){
                             $mensaje .= '<br><br>Error con referencia '.$referencia.' ean '.$ean.' nombre '.$nombre.' url_producto '.$url_producto.'<br>stock '.$stock.' precio '.$precio.' atributo '.$atributo.' url_imagen '.$url_imagen;
@@ -1815,22 +1800,14 @@ class Importaproveedor extends Module
                         
                         $descripcion = $descripcion.'<br><br>Peso= '.$peso.' <br><br>https://www.heo.com/de/es/product/'.$referencia;
 
-                        //19/01/2023 Recogemos el fabricante y lo añadimos a la descripción por ahora
-                        $manufacturer = trim($campos[16]);
-                        if (!$manufacturer || $manufacturer == '' || is_null($manufacturer)){
-                            $manufacturer = 'No disponible.';
-                        }
-
-                        $descripcion = 'Fabricante: '.$manufacturer.'<br><br>'.$descripcion;
-
                         //para HEO:
                         $id_proveedor = 4;
                         $nombre_proveedor = 'Heo'; 
 
                         //introducimos la línea en frik_aux_import_catalogos
                         $sql_insert_datos = 'INSERT INTO frik_aux_import_catalogos
-                        (ean, referencia_proveedor, id_proveedor, nombre_proveedor, nombre, descripcion, manufacturer, precio, peso, url_producto, url_imagen, estado, disponibilidad, fecha_llegada, date_add) VALUES 
-                        ("'.$ean.'", "'.$referencia.'", '.$id_proveedor.', "'.$nombre_proveedor.'", "'.$nombre.'", "'.$descripcion.'", "'.$manufacturer.'", '.$precio.', '.$peso.', "'.$url_producto.'", "'.$url_imagen.'", "'.$estado.'", '.$disponibilidad.', "'.$fecha_llegada.'", NOW())';
+                        (ean, referencia_proveedor, id_proveedor, nombre_proveedor, nombre, descripcion, precio, peso, url_producto, url_imagen, estado, disponibilidad, fecha_llegada, date_add) VALUES 
+                        ("'.$ean.'", "'.$referencia.'", '.$id_proveedor.', "'.$nombre_proveedor.'", "'.$nombre.'", "'.$descripcion.'", '.$precio.', '.$peso.', "'.$url_producto.'", "'.$url_imagen.'", "'.$estado.'", '.$disponibilidad.', "'.$fecha_llegada.'", NOW())';
     
                         if (!Db::getInstance()->execute($sql_insert_datos)){
                             $mensaje .= '<br><br>Error con referencia '.$referencia.' ean '.$ean.' nombre '.$nombre.' url_producto '.$url_producto.'<br>stock '.$stock.' precio '.$precio.' atributo '.$atributo.' url_imagen '.$url_imagen.' fecha_disponible= '.$fecha_llegada;
@@ -1987,10 +1964,9 @@ class Importaproveedor extends Module
                      
                     //para Difuzed, si no hay 32 campos es que hay algún error o cambio en el archivo, no lo procesamos y mostramos error
                     //30/06/2022 Han añadido columna Discount % on ListPrice, en campo 12, pasan a ser 33
-                    //29/09/2022 han añadido 4 imágenes, como no les veo diferencia las ignoro. Pasa a 37 columnas
-                    if ((count($campos) != 37)){
+                    if ((count($campos) != 33)){
                         
-                        $error = '<br>Error en archivo de catálogo '.$archivo_escogido.' . Error en número de columnas, no coincide, deberían ser 37 y son '.count($campos); 
+                        $error = '<br>Error en archivo de catálogo '.$archivo_escogido.' . Error en número de columnas, no coincide, deberían ser 33 y son '.count($campos); 
                         $output = '<div class="panel">'.$error.'</div>';
                         
                         return $output;
@@ -2117,7 +2093,6 @@ class Importaproveedor extends Module
                             $fecha_llegada = date("Y-m-d", strtotime(str_replace('/','-',$fecha_llegada)));
                         }
 
-                        //29/09/2022 han añadido 4 imágenes, como no les veo diferencia las ignoro. Serían las últimas 4 columnas
                         //30/06/2022 pasa de 28 a 29
                         $url_imagen = trim($campos[29]);
                         if (!$url_imagen || $url_imagen == '' || is_null($url_imagen)){
@@ -2977,20 +2952,12 @@ class Importaproveedor extends Module
                         $precio = str_replace(',','.',trim($campos[15])); //cambiamos , por .                        
                         if (!$precio || $precio == '' || is_null($precio)){
                             $precio = 0;
-                        }    
+                        }                                        
 
                         //metemos un punto en el puesto cuatro de la referencia
                         $url_producto = 'http://www.zonalibros.com/Clientes/FichaArticulo.aspx?Libro='.substr_replace($referencia,".",3,0);
                         
                         $descripcion = 'http://www.zonalibros.com/Clientes/FichaArticulo.aspx?Libro='.substr_replace($referencia,".",3,0);
-
-                        //19/01/2023 Recogemos el fabricante y lo añadimos a la descripción por ahora
-                        $manufacturer = trim($campos[5]);
-                        if (!$manufacturer || $manufacturer == '' || is_null($manufacturer)){
-                            $manufacturer = 'No disponible.';
-                        }
-
-                        $descripcion = 'Fabricante: '.$manufacturer.'<br><br>'.$descripcion;
                         
                         //para SD:
                         $id_proveedor = 6;
@@ -3011,8 +2978,8 @@ class Importaproveedor extends Module
 
                         //introducimos la línea en frik_aux_import_catalogos
                         $sql_insert_datos = 'INSERT INTO frik_aux_import_catalogos
-                        (ean, referencia_proveedor, id_proveedor, nombre_proveedor, nombre, descripcion, manufacturer, precio, url_producto, url_imagen, url_imagen_2, url_imagen_3, url_imagen_4, url_imagen_5, stock, estado, disponibilidad, fecha_llegada, date_add) VALUES 
-                        ("'.$ean.'", "'.$referencia.'", '.$id_proveedor.', "'.$nombre_proveedor.'", "'.$nombre.'", "'.$descripcion.'", "'.$manufacturer.'", '.$precio.', "'.$url_producto.'", "'.$url_imagen.'", "'.$url_imagen_2.'", "'.$url_imagen_3.'", "'.$url_imagen_4.'", "'.$url_imagen_5.'", '.$stock.', "'.$estado.'", '.$disponibilidad.', "'.$fecha_llegada.'", NOW())';
+                        (ean, referencia_proveedor, id_proveedor, nombre_proveedor, nombre, descripcion, precio, url_producto, url_imagen, url_imagen_2, url_imagen_3, url_imagen_4, url_imagen_5, stock, estado, disponibilidad, fecha_llegada, date_add) VALUES 
+                        ("'.$ean.'", "'.$referencia.'", '.$id_proveedor.', "'.$nombre_proveedor.'", "'.$nombre.'", "'.$descripcion.'", '.$precio.', "'.$url_producto.'", "'.$url_imagen.'", "'.$url_imagen_2.'", "'.$url_imagen_3.'", "'.$url_imagen_4.'", "'.$url_imagen_5.'", '.$stock.', "'.$estado.'", '.$disponibilidad.', "'.$fecha_llegada.'", NOW())';
     
                         if (!Db::getInstance()->execute($sql_insert_datos)){
                             $mensaje .= '<br><br>Error con referencia '.$referencia.' ean '.$ean.' nombre '.$nombre.' url_producto '.$url_producto.'<br>stock '.$stock.' precio '.$precio.' url_imagen '.$url_imagen.' fecha_llegada= '.$fecha_llegada;
@@ -3500,7 +3467,6 @@ class Importaproveedor extends Module
 
                 
         } elseif (strpos(strtolower($explode_nombre_archivo[0]),'glo') !== false){
-            //url https://multimedia.globomatik.net/csv/import.php?username=36979&password=26526848&formato=csv&type=csv10&mode=all
             $proveedor = 'Globomatik';
             $pattern = '/^GLO_[0-9]{2}_[0-1]{1}[0-9]{1}_[0-9]{4}$/';
             if (preg_match($pattern, $explode_nombre_archivo[0], $match)) {
@@ -3732,7 +3698,6 @@ class Importaproveedor extends Module
             } 
 
         } elseif (strpos(strtolower($explode_nombre_archivo[0]),'dmi') !== false){
-            //url https://www.dmi.es/catalogo.aspx?u=SergioFriki&p=Robusta2021
             $proveedor = 'DMI';
             $pattern = '/^DMI_[0-9]{2}_[0-1]{1}[0-9]{1}_[0-9]{4}$/';
             if (preg_match($pattern, $explode_nombre_archivo[0], $match)) {
@@ -4259,7 +4224,6 @@ class Importaproveedor extends Module
         //08/08/2022 - En nov 2021 añadimos al proceso que compare el coste del producto en lafrips_products y lo actualice cuando un producto se pone en permitir pedido, insertando la info en frik_log_cambio_coste_permitir_epedido para posteriormente enviar un aviso con los productos cuyo coste ha variado en más de x porcentaje. Ahora añado que ese proceso lo realice cada vez que se ejecuta esto con todos los productos que tienen marcado permitir pedido para evitar que si un producto lo tiene activo y el proveedor modifica el coste se quede sin actualizar, ya que hasta ahora solo se actualizaba al marcar permitir pedido.
         Corrijo la consulta que saca los que tienen permitir pedido, buscando solo los que corresponden a los proveedores configurados para permitir pedido, no todos los de la tabla.
         Obtenemos todos junto a su disponibilidad de catálogo y coste. Si están disponibles comprobamos su coste, si no están disponibles solo les quitamos permitir pedido, y si en el futuro se les vuelve a poner se volverá a comprobar el coste.
-        Además para actualizar los costes de productos en prepedido, que son ignorados por el proceso, no los quitamos de la consulta y sacamos si son o no, y en su caso solo se comprueba el coste sin tocar permitir pedido
     */
     protected function postProcessAsignarPermitirPedido() 
     {
@@ -4298,16 +4262,11 @@ class Importaproveedor extends Module
         //07/10/2020 Idem productos de Cerdá Adult, id_manufacturer = 81
         //22/11/2021 Idem productos de DMI, id_supplier = 160
         //10/02/2022 Idem productos de Globomatik, id_supplier = 156
-        //08/08/2022 sacamos coste y disponibilidad, ahora se procesan tanto los que tienen disponibilidad, para comprobar el coste, como los que no tienen, para quitar permitir pedidos. También sacamos si son prepedido, y a esos solo comprobamos coste
+        //08/08/2022 sacamos coste y disponibilidad, ahora se procesan tanto los que tienen disponibilidad, para comprobar el coste, como los que no tienen, para quitar permitir pedidos
         $sql_productos_en_catalogo = 'SELECT pro.id_product AS idproducto, pro.reference AS referencia_presta, pro.ean13 AS ean, 
         pro.id_supplier AS idsupplier, psu.product_supplier_reference AS ref_proveedor, ica.eliminado AS eliminado, 
         ica.disponibilidad AS disponibilidad, ica.precio AS coste_proveedor, 
-        pro.wholesale_price AS pro_wholesaleprice, psu.product_supplier_price_te AS psu_supplier_price,
-        CASE
-        WHEN pro.id_product IN (SELECT id_product FROM lafrips_category_product WHERE id_category = 121)  THEN 1
-        ELSE 0
-        END
-        AS prepedido
+        pro.wholesale_price AS pro_wholesaleprice, psu.product_supplier_price_te AS psu_supplier_price
         FROM lafrips_product pro 
         JOIN lafrips_stock_available ava ON pro.id_product = ava.id_product 
             AND ava.id_product_attribute = 0
@@ -4317,19 +4276,19 @@ class Importaproveedor extends Module
         WHERE ava.out_of_stock = 1                   
         AND pro.id_manufacturer NOT IN (76, 81) # Cerdá Kids y Adult        
         AND pro.id_supplier NOT IN (156, 160) # Globomatik y DMI
-        AND ('.$sql_proveedores.');
+        AND ('.$sql_proveedores.') 
+        AND pro.id_product NOT IN (SELECT id_product FROM lafrips_category_product WHERE id_category = 121);
         ';
 
         $productos_en_catalogo = Db::getInstance()->ExecuteS($sql_productos_en_catalogo);  
         
         $numeroproductosnopermitir = 0;
 
-        //para cada id comprobamos su disponibilidad, si no es prepedido y disponibilidad es 0 quitamos Permitir Pedido
-        //20/10/2022 para Heo prepedido se puede guardar disponibilidad como 2, modifico para que quite permitir si tiene 2 pero no categoria prepedido. $producto['disponibilidad'] != 1
-        //además al resto, prepedidos y no prepedidos con disponibilidad, comparamos el coste de proveedor con coste en lafrips_products y coste en lafrips_product_supplier, si es diferente lo actualizamos, y almacenamos en frik_log_cambio_coste_permitir_pedido
+        //para cada id comprobamos su disponibilidad, si es 0 quitamos Permitir Pedido
+        //además comparamos el coste de proveedor con coste en lafrips_products y coste en lafrips_product_supplier, si es diferente lo actualizamos, y almacenamos en frik_log_cambio_coste_permitir_pedido
         foreach ($productos_en_catalogo as $producto) {
-            //disponibilidad y no prepedido
-            if ($producto['disponibilidad'] != 1 && !$producto['prepedido']) {
+            //disponibilidad
+            if (!$producto['disponibilidad']) {
                 //NO DISPONIBLE
                 //Marcamos permitir pedidos (0 no permitir, 1 permitir, 2 por defecto no permitir)
                 StockAvailable::setProductOutOfStock($producto['idproducto'], 2);
@@ -4361,7 +4320,7 @@ class Importaproveedor extends Module
                 $tabla .= '<tr><td>'.$id_product.'</td><td>'.$referencia_producto.'</td><td>'.$ean.'</td><td>'.$referencia_proveedor.'</td><td>'.$nombre_proveedor.'</td><td>'.$operacion.'</td></tr>';
 
             } else {
-                //Producto disponible con el proveedor actual, o prepedido, comprobamos coste
+                //Producto disponible con el proveedor actual, comprobamos coste
                 //Si el coste de proveedor en catálogo actual es diferente del que tenemos en Prestashop, hay que actualizarlo y guardar el cambio en frik_log_cambio_coste_permitir_pedido
                 $coste_proveedor = $producto['coste_proveedor'];
                 $pro_wholesaleprice = $producto['pro_wholesaleprice'];

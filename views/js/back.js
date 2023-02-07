@@ -18,11 +18,15 @@ $(function(){
        //guardamos en dataObj el contenido de select e inputs del formulario
        $(this).find('input, select').each(function(index, elt){
            //04/04/2022 de esta forma no parece recoger el valor seleccionado en el switch (radio button) para mostrar o no productos que ya existen, no tengo tiempo de averiguar lo que ocurre así que ñapa, cuando .find() pasa por ele elmento de nombre ocultar_existentes metemos a dataObj el valor que tiene seleccionado
+           //07/02/2023 Misma ñapa para ocultar productos sin disponibilidad ocultar_no_disponibles
            if (elt.name == "ocultar_existentes") {
                 dataObj[elt.name] = document.querySelector('input[name="ocultar_existentes"]:checked').value;
-           } else {
-                dataObj[elt.name] = elt.value;
-           }           
+           } else if (elt.name == "ocultar_no_disponibles") {
+                dataObj[elt.name] = document.querySelector('input[name="ocultar_no_disponibles"]:checked').value;
+            } else {
+                    dataObj[elt.name] = elt.value;
+            }   
+
        });
 
     //    console.dir(dataObj);

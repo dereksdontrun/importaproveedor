@@ -11,7 +11,8 @@ $(document).ready(function(){
     $('#producto_importar').attr("placeholder", "Introduce la referencia completa del producto");
     $('#num_combination').hide();
     $('#attribute_group').hide(); 
-    $('#weight').val(1.111); 
+    //02/09/2022 pasamos de peso 1.111 por defecto a 0.444
+    $('#weight').val(0.444); 
     $('#meta_title').val('Producto por 34,90€ – LaFrikileria.com');
     $('#meta_description').val('Compra todos los artículos de - en nuestra tienda de regalos originales de Cine, Series de Tv, Videojuegos, Superhéroes, Manga y Anime');    
     //escondemos los inputs para url de imágenes y les ponemos placeholder

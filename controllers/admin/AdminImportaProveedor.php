@@ -138,6 +138,26 @@ class AdminImportaProveedorController extends ModuleAdminController {
                         )
                     ),
                 ), 
+                //07/02/2023 Añadir un switch para quitar productos que en principio no tienen stock en el proveedor, mostrar solo disponibles, aunque no sea muy fiable
+                array(
+                    'type' => 'switch',                        
+                    'label' => $this->l('Ocultar productos no disponibles'),
+                    'name' => 'ocultar_no_disponibles',
+                    // 'is_bool' => true,
+                    'desc' => $this->l('Mostrar solo productos de proveedores que tienen disponibilidad en el catálogo. DATO NO FIABLE.'),
+                    'values' => array(
+                        array(
+                            'id' => 'active_on',
+                            'value' => 1,
+                            'label' => $this->l('Enabled')
+                        ),
+                        array(
+                            'id' => 'active_off',
+                            'value' => 0,
+                            'label' => $this->l('Disabled')
+                        )
+                    ),
+                ), 
                 //limite de productos a mostrar. Tiene trampa, yo sacaré siempre hasta 1000, pero mostraré los que se seleccione. Esto es debido a que primero saco los productos y después, si hay que ocultar los que ya existen, los quito. De modo que si marcas mostrar 100 y los 100 primeros ya existen y está marcado ocultar existentes, no saldría ninguno, a pesar de que puede haber cientos, solo que no salen en la select inicial que tiene limit 100
                 array(
                     'type' => 'select',
@@ -176,7 +196,9 @@ class AdminImportaProveedorController extends ModuleAdminController {
         $pattern_nombre = trim(pSQL(Tools::getValue('nombre_producto', false)));
         //04/04/2022 mostrar o no los productos de los catálogos que ya existen en prestashop. true es ocultar, false es mostrarlos
         $ocultar_existentes = Tools::getValue('ocultar_existentes', false); 
-        $limite_productos = (int) Tools::getValue('limite_productos', false);       
+        $limite_productos = (int) Tools::getValue('limite_productos', false);   
+        //07/02/2023 mostrar o no los productos de los catálogos que tienen disponibilidad. true es ocultar sin disponibilidad, false es mostrarlos
+        $ocultar_no_disponibles = Tools::getValue('ocultar_no_disponibles', false);             
         
         if ((!$pattern_nombre || $pattern_nombre == '')&&(!$pattern_referencia || $pattern_referencia == '')&&(!$pattern_ean || $pattern_ean == '')){               
            // $errors[] = 'Introduce lo que estás buscando';
@@ -239,6 +261,13 @@ class AdminImportaProveedorController extends ModuleAdminController {
             $ean_select = '';
         }
 
+        //mostrar con disponibilidad o no 
+        if ($ocultar_no_disponibles) {
+            $disponibilidad = ' AND disponibilidad = 1 ';
+        } else {
+            $disponibilidad = '';
+        }
+
         /*if ($pattern_referencia && !$pattern_ean){
             $condicion = 'WHERE referencia_proveedor LIKE \'%'.$pattern_referencia.'%\' '.$suppliers_select;
         }elseif ($pattern_ean && !$pattern_referencia){
@@ -265,6 +294,8 @@ class AdminImportaProveedorController extends ModuleAdminController {
         }
 
         $condicion .= $proveedor_select;
+
+        $condicion .= $disponibilidad;
 
         //Añadimos que busque un máximo de 1000 productos si se ha marcado ocultar existentes, si no el limit será igual a $limite_productos. Después, en el foreach por cada línea, nos aseguramos de que muestre un máximo de $limite_productos. Esto es porque al poner el límite a la select, si seleccionamos ocultar existentes se puede dar incluso que con este limit todos existan y no se muestre ninguno porque los no existentes aparecen después
         if ($ocultar_existentes) {
@@ -703,10 +734,11 @@ class AdminImportaProveedorController extends ModuleAdminController {
             //ponemos peso 1.111 por defecto, para crearlos con peso y que este sea fácil de buscar posteriormente
             //20/07/2020 para Cerdá usamos el peso proporcionado
             //04/02/2022 Respetamos el peso también para Globomatik y DMI
+            //02/09/2022 pasamos de 1.111 por defecto a 0.444
             if (($id_proveedor == 65 || $id_proveedor == 156 || $id_proveedor == 160) && $peso && $peso != 0){
                 $product->weight = $peso;
             } else {
-                $product->weight = 1.111;
+                $product->weight = 0.444;
             }
             
 
@@ -1214,10 +1246,11 @@ class AdminImportaProveedorController extends ModuleAdminController {
             //ponemos peso 1.111 por defecto, para crearlos con peso y que este sea fácil de buscar posteriormente
             //20/07/2020 para Cerdá usamos el peso proporcionado
             //25/11/2021 por si las combinaciones tienen diferente peso, cogemos como base la más pequeña del array
+            //02/09/2022 pasamos de 1.111 por defecto a 0.444
             if ($id_supplier == 65 && $combinaciones_peso && min($combinaciones_peso) != 0){
                 $product->weight = min($combinaciones_peso);
             } else {
-                $product->weight = 1.111;
+                $product->weight = 0.444;
             }
 
             //Creamos los productos desactivados por defecto

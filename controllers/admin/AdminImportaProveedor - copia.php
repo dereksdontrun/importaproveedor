@@ -68,6 +68,14 @@ class AdminImportaProveedorController extends ModuleAdminController {
         $proveedor_vacio = array(array('id_supplier'=> 0, 'name'=> 'Selecciona proveedor'));
         $suppliers = array_merge($proveedor_vacio, $suppliers);
 
+        //06/04/2022 limite de productos a mostrar. añadimos un select para decidir si mostramos 100 - 300 - 500 productos
+        $limite_productos = array(
+            array('id_limite'=> 30, 'name'=> 30),
+            array('id_limite'=> 100, 'name'=> 100),
+            array('id_limite'=> 300, 'name'=> 300),
+            array('id_limite'=> 500, 'name'=> 500),
+        );
+
         $this->fields_form = array(
             'legend' => array(
                 'title' => 'BUSCAR PRODUCTOS EN CATÁLOGO DE PROVEEDOR',
@@ -110,7 +118,39 @@ class AdminImportaProveedorController extends ModuleAdminController {
                     'name' => 'ean',
                     'required' => false, 
                     'hint' => 'Introduce el ean del producto a buscar',
-                    ),               
+                    ),  
+                array(
+                    'type' => 'switch',                        
+                    'label' => $this->l('Ocultar productos existentes'),
+                    'name' => 'ocultar_existentes',
+                    // 'is_bool' => true,
+                    'desc' => $this->l('Mostrar solo productos de proveedores que no existen en Prestashop'),
+                    'values' => array(
+                        array(
+                            'id' => 'active_on',
+                            'value' => 1,
+                            'label' => $this->l('Enabled')
+                        ),
+                        array(
+                            'id' => 'active_off',
+                            'value' => 0,
+                            'label' => $this->l('Disabled')
+                        )
+                    ),
+                ), 
+                //limite de productos a mostrar. Tiene trampa, yo sacaré siempre hasta 1000, pero mostraré los que se seleccione. Esto es debido a que primero saco los productos y después, si hay que ocultar los que ya existen, los quito. De modo que si marcas mostrar 100 y los 100 primeros ya existen y está marcado ocultar existentes, no saldría ninguno, a pesar de que puede haber cientos, solo que no salen en la select inicial que tiene limit 100
+                array(
+                    'type' => 'select',
+                    'label' => 'Límite productos',
+                    'name' => 'limite_productos',
+                    'required' => true,
+                    'options' => array(
+                        'query' => $limite_productos,
+                        'id' => 'id_limite',
+                        'name' => 'name'
+                    ),
+                    'hint' => 'Selecciona el número máximo de productos a mostrar',
+                ),                         
                 ),
             'reset' => array('title' => 'Limpiar', 'icon' => 'process-icon-eraser icon-eraser'),   
             'submit' => array('title' => 'Buscar', 'icon' => 'process-icon-search icon-search'),            
@@ -134,7 +174,10 @@ class AdminImportaProveedorController extends ModuleAdminController {
         $pattern_ean = trim(pSQL(Tools::getValue('ean', false)));
         $id_supplier = (int) Tools::getValue('id_supplier', false);
         $pattern_nombre = trim(pSQL(Tools::getValue('nombre_producto', false)));
-
+        //04/04/2022 mostrar o no los productos de los catálogos que ya existen en prestashop. true es ocultar, false es mostrarlos
+        $ocultar_existentes = Tools::getValue('ocultar_existentes', false); 
+        $limite_productos = (int) Tools::getValue('limite_productos', false);       
+        
         if ((!$pattern_nombre || $pattern_nombre == '')&&(!$pattern_referencia || $pattern_referencia == '')&&(!$pattern_ean || $pattern_ean == '')){               
            // $errors[] = 'Introduce lo que estás buscando';
             die(Tools::jsonEncode(array('error'=> true, 'message'=>'Introduce lo que estás buscando')));
@@ -185,6 +228,12 @@ class AdminImportaProveedorController extends ModuleAdminController {
 
         //Si pone ean 
         if ($pattern_ean !== ''){
+            //20/06/2022 Se da un problema recurrente, que si el usuario busca un ean tal que 01234567890123, es decir, 13 cifras pero con 0 en el inicio, es fácil que se corresponda al mismo número pero sin el 0 y de 12 cifras para un proveedor y el de 13 para otro. Eso no es problema si la búsqueda es del ean de 12 cifras al poner LIKE, ya que sustituye el primer carácter, pero no funcionará si ponemos el 0 en la búsqueda y el encontrado no tiene el 0. Vamos a analizar los ean y si tiene 13 cifras y además la primera es 0 , lo sustituimos en la búsqueda por el ean sin el 0 inicial.
+            if (strlen($pattern_ean) == 13 && substr($pattern_ean,0,1) == 0) {
+                //el ean introducido tiene 13 caracteres y el primero es 0, lo cambiamos por el mismo sin el 0
+                $pattern_ean = substr($pattern_ean,1,12);
+            }
+
             $ean_select = ' ean LIKE \'%'.$pattern_ean.'%\' ';
         }else{
             $ean_select = '';
@@ -217,8 +266,13 @@ class AdminImportaProveedorController extends ModuleAdminController {
 
         $condicion .= $proveedor_select;
 
-        //Añadimos que muestre un máximo de 100 productos
-        $limit = 100;
+        //Añadimos que busque un máximo de 1000 productos si se ha marcado ocultar existentes, si no el limit será igual a $limite_productos. Después, en el foreach por cada línea, nos aseguramos de que muestre un máximo de $limite_productos. Esto es porque al poner el límite a la select, si seleccionamos ocultar existentes se puede dar incluso que con este limit todos existan y no se muestre ninguno porque los no existentes aparecen después
+        if ($ocultar_existentes) {
+            $limit = 1000;
+        } else {
+            $limit = $limite_productos; 
+        }
+        
 
         $busqueda = 'SELECT id_import_catalogos, id_proveedor, referencia_proveedor, ean, nombre, nombre_proveedor, descripcion, precio, url_producto, url_imagen, disponibilidad, fecha_llegada, atributo, eliminado
             FROM frik_import_catalogos 
@@ -228,7 +282,15 @@ class AdminImportaProveedorController extends ModuleAdminController {
         $resultado = Db::getInstance()->executeS($busqueda);
 
         //Vamos a buscar en cada línea del resultado de la query, si la referencia de proveedor o el ean o ambos de los productos resultado de la consulta se encuentran ya en algún o algunos productos en Prestashop, y si es así los añadiremos a $resultado para pasarlo por json y ajax. También vamos a buscar el ean si lo hay en la tabla import_catalogos para mostrar si el producto con ese ean lo tiene algún otro proveedor.
-        foreach ($resultado as &$linea) {                   
+        // 04/04/2022 Si el switch se marcó como ocultar productos existentes evitaremos los que encontremos si ean o referencia en prestashop. Hacemos el foreach key=>value para poder hacer unset del array con el key
+        //contaremos los productos a mostrar hasta un máximo de  $limite_productos
+        $contador = 0;
+        foreach ($resultado as $key => &$linea) {  
+            if ($contador >=  $limite_productos) {
+                //una vez alcanzado el límite de productos a mostrar, hacemos unset del resto de líneas en $resultado
+                unset($resultado[$key]); 
+                continue;
+            }              
             //Si no se selecciona proveedor buscará en todos
             if ($id_supplier !== 0){
                 $proveedor_select = ' AND id_supplier ='.$id_supplier;
@@ -242,8 +304,8 @@ class AdminImportaProveedorController extends ModuleAdminController {
             $busca_ref_prov = "SELECT GROUP_CONCAT(DISTINCT id_product SEPARATOR '|') AS existentes FROM lafrips_product_supplier 
                 WHERE product_supplier_reference = '".$referencia."' ".$proveedor_select." ;";  
             
-            $existentes_referencia = Db::getInstance()->executeS($busca_ref_prov); 
-            
+            $existentes_referencia = Db::getInstance()->executeS($busca_ref_prov);             
+
             //Guardamos el resultado en la línea 
             $linea['prestashop_ref_prov'] = $existentes_referencia[0]['existentes'];  
 
@@ -252,6 +314,11 @@ class AdminImportaProveedorController extends ModuleAdminController {
 
             //Si el producto del proveedor no tiene ean nos saltamos este paso y mostrará 'No'
             if ((!empty($ean))&&($ean !== '')){
+                //20/06/2022 Se da un problema recurrente, que si el usuario busca un ean tal que 01234567890123, es decir, 13 cifras pero con 0 en el inicio, es fácil que se corresponda al mismo número pero sin el 0 y de 12 cifras para un proveedor y el de 13 para otro. Eso no es problema si la búsqueda es del ean de 12 cifras al poner LIKE, ya que sustituye el primer carácter, pero no funcionará si ponemos el 0 en la búsqueda y el encontrado no tiene el 0. Vamos a analizar los ean y si tiene 13 cifras y además la primera es 0 , lo sustituimos en la búsqueda por el ean sin el 0 inicial.
+                if (strlen($ean) == 13 && substr($ean,0,1) == 0) {
+                    //el ean introducido tiene 13 caracteres y el primero es 0, lo cambiamos por el mismo sin el 0
+                    $ean = substr($ean,1,12);
+                }
                 //buscamos el ean en la tabla product y en la tabla product_attribute, ponemos la búsqueda con LIKE para evitar los productos con ean de 12 cifras a las que algunos añaden un 0 delante
                 $busca_ean = "SELECT GROUP_CONCAT(DISTINCT id_product SEPARATOR '|') AS existentes FROM
                                 ((SELECT id_product
@@ -271,12 +338,21 @@ class AdminImportaProveedorController extends ModuleAdminController {
                 $linea['prestashop_ean'] = null;
             }
 
+            //06/04/2022 si en el front se seleccionó el switch para ocultar los productos que ya existen, $ocultar_existentes vale 1, hacemos unset de está línea de producto para sacarla del array de productos a mostrar cuando las select que buscan referencias de producto o ean den resultado, implicando que el producto ya existe
+            if ($ocultar_existentes) {
+                if ($linea['prestashop_ref_prov'] != null || $linea['prestashop_ean']  != null) {
+                    //si hay info de producto existente encontrado por la referencia o el ean, eliminamos la línea y pasamos a la siguiente
+                    unset($resultado[$key]); 
+                    continue;
+                }
+            }
+
             //Para el proceso de agregar proveedor a productos que ya existan (coincide ean) comprobamos si el ean lo tiene un solo producto o más y también si el ean es de producto o de atributo. Si lo comparte más de un producto no permitiremos agregar el proveedor mientras sea así por no saber a cual, y si es de atributo, tampoco.
             if ((!empty($ean))&&($ean !== '')){
                 //buscamos el ean en la tabla product
                 $busca_ean_prod = "SELECT id_product
                                 FROM lafrips_product
-                                WHERE ean13 = ".$ean;  
+                                WHERE ean13 LIKE '%".$ean."%';";
 
                 $existentes_ean = Db::getInstance()->executeS($busca_ean_prod);                
 
@@ -299,7 +375,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
                 //buscamos el ean en la tabla product_attribute
                 $busca_ean_atr = "SELECT id_product
                                 FROM lafrips_product_attribute
-                                WHERE ean13 = ".$ean;  
+                                WHERE ean13 LIKE '%".$ean."%';";
 
                 $existentes_ean_atr = Db::getInstance()->executeS($busca_ean_atr);
 
@@ -346,8 +422,8 @@ class AdminImportaProveedorController extends ModuleAdminController {
                 $linea['url_imagen'] = $url_imagen;
             }
 
+            $contador++;
         }
-        
 
         //die(Tools::jsonEncode(array('error'=> true, 'message'=>$busqueda)));    
         //console.log($resultado);        
@@ -627,10 +703,11 @@ class AdminImportaProveedorController extends ModuleAdminController {
             //ponemos peso 1.111 por defecto, para crearlos con peso y que este sea fácil de buscar posteriormente
             //20/07/2020 para Cerdá usamos el peso proporcionado
             //04/02/2022 Respetamos el peso también para Globomatik y DMI
+            //02/09/2022 pasamos de 1.111 por defecto a 0.444
             if (($id_proveedor == 65 || $id_proveedor == 156 || $id_proveedor == 160) && $peso && $peso != 0){
                 $product->weight = $peso;
             } else {
-                $product->weight = 1.111;
+                $product->weight = 0.444;
             }
             
 
@@ -813,10 +890,12 @@ class AdminImportaProveedorController extends ModuleAdminController {
             die(Tools::jsonEncode(array('error'=> true, 'message'=>'Hay algún error, el producto no tiene ean')));
         }
         //Buscamos en prestashop el producto con el ean del producto de proveedor, de momento solo en lafrips_product ya que no agregamos atributos
-        
-        // $sql_producto_prestashop = 'SELECT id_product
-        //                         FROM lafrips_product
-        //                         WHERE ean13 = '.$ean_prod_proveedor;
+        //20/06/2022 Se da un problema recurrente, que si el usuario busca un ean tal que 01234567890123, es decir, 13 cifras pero con 0 en el inicio, es fácil que se corresponda al mismo número pero sin el 0 y de 12 cifras para un proveedor y el de 13 para otro. Eso no es problema si la búsqueda es del ean de 12 cifras al poner LIKE, ya que sustituye el primer carácter, pero no funcionará si ponemos el 0 en la búsqueda y el encontrado no tiene el 0. Vamos a analizar los ean y si tiene 13 cifras y además la primera es 0 , lo sustituimos en la búsqueda por el ean sin el 0 inicial.
+        if (strlen($ean_prod_proveedor) == 13 && substr($ean_prod_proveedor,0,1) == 0) {
+            //el ean buscado tiene 13 caracteres y el primero es 0, lo cambiamos por el mismo sin el 0
+            $ean_prod_proveedor = substr($ean_prod_proveedor,1,12);
+        }
+                
         $sql_producto_prestashop = 'SELECT id_product, reference
                                     FROM lafrips_product
                                     WHERE ean13 LIKE "%'.$ean_prod_proveedor.'"';
@@ -1136,10 +1215,11 @@ class AdminImportaProveedorController extends ModuleAdminController {
             //ponemos peso 1.111 por defecto, para crearlos con peso y que este sea fácil de buscar posteriormente
             //20/07/2020 para Cerdá usamos el peso proporcionado
             //25/11/2021 por si las combinaciones tienen diferente peso, cogemos como base la más pequeña del array
+            //02/09/2022 pasamos de 1.111 por defecto a 0.444
             if ($id_supplier == 65 && $combinaciones_peso && min($combinaciones_peso) != 0){
                 $product->weight = min($combinaciones_peso);
             } else {
-                $product->weight = 1.111;
+                $product->weight = 0.444;
             }
 
             //Creamos los productos desactivados por defecto
