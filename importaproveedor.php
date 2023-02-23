@@ -2367,10 +2367,11 @@ class Importaproveedor extends Module
 
                         $descripcion_ing = $nombre_ing.' <br><br>'.$composicion.' <br><br>'.$personaje.' <br><br>'.$desc_color.' <br><br>'.$desc_talla.' <br><br>'.$medida_gen;
 
+                        //quitamos espacios y / del nombre para generar url de producto
                         if ($referencia_base) {
-                            $url_producto = 'https://www.cerdagroup.com/es/product/show/'.$referencia_base.'/'.str_replace(' ','-', $nombre).'/';
+                            $url_producto = 'https://www.cerdagroup.com/es/product/show/'.$referencia_base.'/'.str_replace(' ','-', str_replace('/','-', $nombre)).'/';
                         } else {
-                            $url_producto = 'https://www.cerdagroup.com/es/product/show/'.$referencia.'/'.str_replace(' ','-', $nombre).'/';
+                            $url_producto = 'https://www.cerdagroup.com/es/product/show/'.$referencia.'/'.str_replace(' ','-', str_replace('/','-', $nombre)).'/';
                         }
 
                         //para Cerdá:
@@ -4065,9 +4066,9 @@ class Importaproveedor extends Module
                             $descripcion_ing = $nombre_ing.' <br><br>'.$composicion.' <br><br>'.$personaje.' <br><br>'.$desc_color.' <br><br>'.$desc_talla.' <br><br>'.$medida_gen;
 
                             if ($surtido) {
-                                $url_producto = 'https://www.cerdagroup.com/es/product/show/'.$surtido.'/'.str_replace(' ','-', $nombre).'/';
+                                $url_producto = 'https://www.cerdagroup.com/es/product/show/'.$surtido.'/'.str_replace(' ','-', str_replace('/','-', $nombre)).'/';
                             } else {
-                                $url_producto = 'https://www.cerdagroup.com/es/product/show/'.$referencia.'/'.str_replace(' ','-', $nombre).'/';
+                                $url_producto = 'https://www.cerdagroup.com/es/product/show/'.$referencia.'/'.str_replace(' ','-', str_replace('/','-', $nombre)).'/';
                             }
 
                             //para Cerdá:
