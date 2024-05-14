@@ -128,6 +128,8 @@ class Importaproveedor extends Module
         // 'id_product_attribute' => (int) Product attribute ID,
         // 'quantity' => (int) New product quantity
     // );
+
+    //20/03/2023 Vamos a quitar los procsos de quitar y poner categorías al descatalogar/recatalogar y solo poner y quitar visibility none-both
     public function hookActionUpdateQuantity($params)
     {
         //Comprobamos la configuración del módulo, si está activa la automatización de productos
@@ -135,7 +137,9 @@ class Importaproveedor extends Module
             return;
         }
         //de momento solo trabajaremos sobre productos sin atributos, y además, el nuevo stock disponible, quantity, debe ser 0 
-        if ($params && $params['id_product'] !== 0 && $params['id_product_attribute'] == 0 && $params['quantity'] == 0 ){      
+        //16/10/2023 $params['quantity'] debería ser 0 o menos, no sé por qué ha estado así hasta ahora, pero si solo entra con $params['quantity'] == 0 cuando un producto se vende quedando en negativo no entraría por aquí.
+        // if ($params && $params['id_product'] !== 0 && $params['id_product_attribute'] == 0 && $params['quantity'] == 0 ){   
+        if ($params && $params['id_product'] !== 0 && $params['id_product_attribute'] == 0 && $params['quantity'] < 1 ){   
             //sacamos la info de params, id_product, ya que por las condiciones del if, no debe ser atributo y el nuevo stock disponible será 0
             $id_product = $params['id_product'];
 
@@ -347,56 +351,43 @@ class Importaproveedor extends Module
                     $id_product_supplier = ProductSupplier::getIdByProductAndSupplier($id_product,0,$id_proveedor_permitir);
                     $product_supplier = new ProductSupplier($id_product_supplier);                    
                     $product_supplier->product_supplier_price_te = $precios_tabla[$id_proveedor_permitir];
-                    $product_supplier->save();                   
+                    $product_supplier->update();                   
                     
                 }
+
+                //27/03/2023 Ponemos visibility both al producto. Lo hacemos utilizando la instancia, ya que si no al hacer $producto->update() después se pierde el dato, guarda el que tenía al instanciar
+                if ($producto->visibility != 'both') {
+                    $producto->visibility = 'both';
+
+                    Db::getInstance()->Execute("INSERT INTO frik_log_descatalogar (id_product, proceso, id_employee, fecha) VALUES ($id_product, 'visibility_both_importador_automatico', 44, NOW())");
+                }
+                // if (Db::getInstance()->getValue("SELECT visibility FROM lafrips_product WHERE id_product = $id_product") != 'both') {
+                //     Db::getInstance()->Execute("UPDATE lafrips_product SET visibility = 'both', date_upd = NOW() WHERE id_product = $id_product");
+                //     Db::getInstance()->Execute("UPDATE lafrips_product_shop SET visibility = 'both', date_upd = NOW() WHERE id_product = $id_product");
+
+                //     Db::getInstance()->Execute("INSERT INTO frik_log_descatalogar (id_product, proceso, id_employee, fecha) VALUES ($id_product, 'visibility_both_importador_automatico', 44, NOW())");
+                // }               
         
                 //Si el producto está descatalogado (id_category_default = 89) y tiene la categoría Disponible recatalogar (id 2184) marcada, le marcamos la categoría Recatalogar (id 2179), si no tiene la categoría disponible recatalogar lo dejamos como está
-                if ($producto->id_category_default == 89){
+                // if ($producto->id_category_default == 89){
 
-                    //comprobamos que tenga la categoría disponible recatalogar 2184 y que no tenga ya recatalogar 2179                    
-                    if (in_array(2184, $categorias) && !in_array(2179, $categorias)){
-                        //marcamos recatalogar
-                        $producto->addToCategories([2179]);                        
+                //     //comprobamos que tenga la categoría disponible recatalogar 2184 y que no tenga ya recatalogar 2179                    
+                //     if (in_array(2184, $categorias) && !in_array(2179, $categorias)){
+                //         //marcamos recatalogar
+                //         $producto->addToCategories([2179]);                        
         
-                        //introducir el id_product, el proceso (recatalogar_importador) y la fecha en la tabla log frik_log_descatalogar
-                        //22/12/2020 metemos también el id_employee 44 de automatizador
-                        $id_employee_automatico = 44;
-                        Db::getInstance()->Execute("INSERT INTO frik_log_descatalogar (id_product, proceso, id_employee, fecha) VALUES ('".$idProd."', 'marcado_recatalogar_importador_automatico',".$id_employee_automatico.", NOW());");
-                        //Db::getInstance()->Execute("INSERT INTO frik_log_descatalogar (id_product, proceso, fecha) VALUES ('".$id_product."', 'marcado_recatalogar_importador_automatico', NOW());");  
+                //         //introducir el id_product, el proceso (recatalogar_importador) y la fecha en la tabla log frik_log_descatalogar
+                //         //22/12/2020 metemos también el id_employee 44 de automatizador
+                //         $id_employee_automatico = 44;
+                //         Db::getInstance()->Execute("INSERT INTO frik_log_descatalogar (id_product, proceso, id_employee, fecha) VALUES ('".$idProd."', 'marcado_recatalogar_importador_automatico',".$id_employee_automatico.", NOW());");
+                //         //Db::getInstance()->Execute("INSERT INTO frik_log_descatalogar (id_product, proceso, fecha) VALUES ('".$id_product."', 'marcado_recatalogar_importador_automatico', NOW());");  
                     
-                    }
-                }
+                //     }
+                // }
         
                 //Ponemos el mensaje de prepedido al producto
-                //mensaje prepedido. Si es de Cerdá Kids ponemos otro
-                //id de manufacturer by name
-                // $id_manufacturer_cerda_kids = (int)Manufacturer::getIdByName('Cerdá Kids');
-                // if ($producto->id_manufacturer == $id_manufacturer_cerda_kids) {
-                //     $available_later = 'Atención: el plazo de envío de este artículo es de tres a seis días.';
-                // } else {
-                //     $available_later = 'Atención: el plazo de envío de este artículo es de una semana a diez días.';
-                // }
-
-                //10/01/2022 Si el proveedor que ponemos es Difuzed, ponemos otro mensaje
-                if ($id_proveedor_permitir == 7) {
-                    $available_later = 'Atención: el plazo de envío de este artículo es de hasta tres semanas.';
-                } else {
-                    $available_later = 'Atención: el plazo de envío de este artículo es de una semana a diez días.';
-                }
-
-                //generamos elarray de idiomas para available later
-                $idiomas = Language::getLanguages();
-    
-                $available_later_todos = array();
-                foreach ($idiomas as $idioma) {                    
-                    $available_later_todos[$idioma['id_lang']] = $available_later;                    
-                }
-
-                $producto->available_later = $available_later_todos;    
-
-                // $available_later = 'Atención: el plazo de envío de este artículo es de una semana a diez días.';                
-                // $producto->available_later = [1 => $available_later, 11 => $available_later, 12 => $available_later, 13 => $available_later, 14 => $available_later];
+                //30/03/2023 generamos el array de available_later con todos los idiomas sacando el mensaje de la tabla lafrips_mensaje_disponibilidad con la función mensajeAvailable(). La función devuelve un array, en 0 está available_now y en 1 available_later
+                $producto->available_later = $this->mensajeAvailable($id_proveedor_permitir)[1];                    
         
                 //si el proveedor por defecto no es el que vamos a asignar, se lo ponemos
                 if ($producto->id_supplier !== $id_proveedor_permitir){                    
@@ -412,7 +403,7 @@ class Importaproveedor extends Module
                 }        
         
                 //guardamos los cambios en producto
-                $producto->save();
+                $producto->update();
                 
                 //Añadimos el log de lo que hemos hecho a frik_log_import_catalogos
                 $id_empleado = 0;
@@ -476,6 +467,15 @@ class Importaproveedor extends Module
                 } else {
                     return;
                 }  
+
+                //20/03/2023 Aseguramos visibility both al producto
+                if ($producto->visibility != 'both') {
+                    $producto->visibility = 'both';
+
+                    $producto->update();
+                }
+                // Db::getInstance()->Execute("UPDATE lafrips_product SET visibility = 'both', date_upd = NOW() WHERE id_product = $id_product");
+                // Db::getInstance()->Execute("UPDATE lafrips_product_shop SET visibility = 'both', date_upd = NOW() WHERE id_product = $id_product");
                 
                 //Añadimos el log de lo que hemos hecho a frik_log_import_catalogos
                 $id_empleado = 0;
@@ -496,6 +496,59 @@ class Importaproveedor extends Module
 
             return;
         }
+    }
+
+    //función para obtener el mensaje de disponibilidad available_later según el proveedor. Tiene en cuenta id_lang para España, Portugal y el resto, que sería todos inglés
+    //devuelve un array, en su primera posición está el array para available_now y en la segunda el array para available_later
+    public function mensajeAvailable($id_supplier) {
+        //buscamos los mensajes en lafrips_mensaje_disponibilidad para ese id_supplier. Si no encuentra el supplier obtiene el mensaje por defecto, por cada id_lang.
+        //comprobamos que id_supplier está en la tabla, si no sacamos los valores default
+        if (Db::getInstance()->getValue("SELECT id_mensaje_disponibilidad FROM lafrips_mensaje_disponibilidad WHERE is_default = 0 AND id_supplier = $id_supplier")) {
+            $sql_mensajes = "SELECT id_lang, available_now, available_later 
+            FROM lafrips_mensaje_disponibilidad
+            WHERE id_supplier = $id_supplier";
+        } else {
+            $sql_mensajes = "SELECT id_lang, available_now, available_later 
+            FROM lafrips_mensaje_disponibilidad
+            WHERE is_default = 1";
+        }
+
+        if ($mensajes = Db::getInstance()->ExecuteS($sql_mensajes)) {
+            foreach ($mensajes AS $mensaje) {
+                if ($mensaje['id_lang'] == 1) {
+                    $available_now_es = $mensaje['available_now'];
+                    $available_later_es = $mensaje['available_later'];
+                } elseif ($mensaje['id_lang'] == 18) {
+                    $available_now_pt = $mensaje['available_now'];
+                    $available_later_pt = $mensaje['available_later'];
+                } else {
+                    $available_now_en = $mensaje['available_now'];
+                    $available_later_en = $mensaje['available_later'];
+                }
+            }
+            //generamos el array de idiomas para available now y later
+            $idiomas = Language::getLanguages();
+        
+            $available_later_todos = array();
+            foreach ($idiomas as $idioma) {
+                if ($idioma['iso_code'] == 'es') {
+                    $available_now_todos[$idioma['id_lang']] = $available_now_es;  
+                    $available_later_todos[$idioma['id_lang']] = $available_later_es;     
+                } elseif ($idioma['iso_code'] == 'pt') {
+                    $available_now_todos[$idioma['id_lang']] = $available_now_pt;
+                    $available_later_todos[$idioma['id_lang']] = $available_later_pt;     
+                } else {
+                    $available_now_todos[$idioma['id_lang']] = $available_now_en;
+                    $available_later_todos[$idioma['id_lang']] = $available_later_en;   
+                }                
+            }
+
+            return array($available_now_todos, $available_later_todos);
+
+        } else {
+            return false;
+        }
+        
     }
 
     //Probando para añadir página de configuración - 15/11/2019
@@ -1023,9 +1076,10 @@ class Importaproveedor extends Module
                     $campos = fgetcsv($handle, 0, ";");
                      
                     //para Redstring, si no hay 10 campos es que hay algún error o cambio en el archivo, no lo procesamos y mostramos error
-                    if ((count($campos) != 10)){
+                    //23/01/2023 Sacamos también Marca al pedir el  catálogo, lo que añade dos columnas al excel, pasa a 12 campos y cambia el orden.
+                    if ((count($campos) != 12)){
                         
-                        $error = '<br>Error en archivo de catálogo '.$archivo_escogido.' . Error en número de columnas, no coincide, deberían ser 9 y son '.count($campos); 
+                        $error = '<br>Error en archivo de catálogo '.$archivo_escogido.' . Error en número de columnas, no coincide, deberían ser 12 y son '.count($campos); 
                         $output = '<div class="panel">'.$error.'</div>';
                         
                         return $output;
@@ -1064,34 +1118,62 @@ class Importaproveedor extends Module
                             $descripcion = '';
                         }
 
-                        $url_producto = trim($campos[3]);
+                        //23/01/2023 Añadimos la columna Marca como manufacturer
+                        $marca = pSQL(trim($campos[3]));
+                        if (!$marca || $marca == '' || is_null($marca)){
+                            $marca = 'No disponible';
+                        }
+                        $descripcion = 'Marca/Fabricante: '.$marca.'<br><br>'.$descripcion;
+
+                        $url_producto = trim($campos[5]);
                         if (!$url_producto || $url_producto == '' || is_null($url_producto)){
                             $url_producto = '';
                         }
 
-                        $precio = str_replace(',','.',trim($campos[4])); //cambiamos , por .
+                        $precio = str_replace(',','.',trim($campos[6])); //cambiamos , por .
                         if (!$precio || $precio == '' || is_null($precio)){
                             $precio = 0;
                         }
 
-                        $stock = trim($campos[5]);
+                        //21/04/2023 Para los productos de marca noble collection vamos a meter el coste con un 11% de descuento
+                        //02/05/2023 Hacemos lo mismo para Loungefly 7%, Paladone 5%, Pyramid 5%, Cinereplicas 5%, Funko 5%
+                        if (strpos($marca, "NOBLE COLLECTION") !== false) {
+                            $precio = $precio - ($precio*0.11);
+                        }
+                        if (strpos($marca, "CINEREPLICAS") !== false) {
+                            $precio = $precio - ($precio*0.05);
+                        }
+                        if (strpos($marca, "FUNKO") !== false) {
+                            $precio = $precio - ($precio*0.05);
+                        }
+                        if (strpos($marca, "LOUNGEFLY") !== false) {
+                            $precio = $precio - ($precio*0.07);
+                        }
+                        if (strpos($marca, "Paladone") !== false) {
+                            $precio = $precio - ($precio*0.05);
+                        }
+                        if (strpos($marca, "PYRAMID INTERNATIONAL") !== false) {
+                            $precio = $precio - ($precio*0.05);
+                        }
+
+                        $stock = trim($campos[7]);
                         if (!$stock || $stock == '' || is_null($stock)){
                             $stock = 0;
                         }
 
-                        $atributo = trim($campos[6]);
+                        $atributo = trim($campos[8]);
                         if (!$atributo || $atributo == '' || is_null($atributo)){
                             $atributo = '';
                         }
 
                         // $dummy = trim($campos[7]);      campos 6 no tiene nada útil                       
-                        $url_imagen = trim($campos[8]);
+                        $url_imagen = trim($campos[10]);
                         if (!$url_imagen || $url_imagen == '' || is_null($url_imagen)){
                             $url_imagen = '';
                         }
 
                         // 13/05/2021 - hacemos padding a la izquierda a los ean rellenando con 0 hasta 13 cifras los que no las tengan
-                        $ean = trim($campos[9]);
+                        $ean = trim($campos[11]);
                         if (!$ean || $ean == '' || is_null($ean)){
                             $ean = '';
                         } else if (strlen($ean) < 13) {
@@ -1118,8 +1200,8 @@ class Importaproveedor extends Module
 
                         //introducimos la línea en frik_aux_import_catalogos
                         $sql_insert_datos = 'INSERT INTO frik_aux_import_catalogos
-                        (ean, referencia_proveedor, id_proveedor, nombre_proveedor, nombre, descripcion, precio, url_producto, url_imagen, stock, estado, disponibilidad, atributo, date_add) VALUES 
-                        ("'.$ean.'", "'.$referencia.'", '.$id_proveedor.', "'.$nombre_proveedor.'", "'.$nombre.'", "'.$descripcion.'", '.$precio.', "'.$url_producto.'", "'.$url_imagen.'", '.$stock.', "'.$estado.'", '.$disponibilidad.', "'.$atributo.'", NOW())';
+                        (ean, referencia_proveedor, id_proveedor, nombre_proveedor, nombre, descripcion, manufacturer, precio, url_producto, url_imagen, stock, estado, disponibilidad, atributo, date_add) VALUES 
+                        ("'.$ean.'", "'.$referencia.'", '.$id_proveedor.', "'.$nombre_proveedor.'", "'.$nombre.'", "'.$descripcion.'", "'.$marca.'", '.$precio.', "'.$url_producto.'", "'.$url_imagen.'", '.$stock.', "'.$estado.'", '.$disponibilidad.', "'.$atributo.'", NOW())';
     
                         if (!Db::getInstance()->execute($sql_insert_datos)){
                             $mensaje .= '<br><br>Error con referencia '.$referencia.' ean '.$ean.' nombre '.$nombre.' url_producto '.$url_producto.'<br>stock '.$stock.' precio '.$precio.' atributo '.$atributo.' url_imagen '.$url_imagen;
@@ -1525,10 +1607,10 @@ class Importaproveedor extends Module
                     //fgetcsv directamente hace "explode" a un array, mejor que fget(), además parece respetar los caracteres como &#39; y no se cuelan los ; partiendo los campos
                     $campos = fgetcsv($handle, 0, ";");
                      
-                    //para el nuevo de Karactermanía (03/08/2021), si no hay 59 campos es que hay algún error o cambio en el archivo, no lo procesamos y mostramos error
-                    if ((count($campos) != 59)){
+                    //para el nuevo de Karactermanía (18/05/2023), si no hay 61 campos es que hay algún error o cambio en el archivo, no lo procesamos y mostramos error
+                    if ((count($campos) != 62)){
                         
-                        $error = '<br>Error en archivo de catálogo '.$archivo_escogido.' . Error en número de columnas, no coincide, deberían ser 59 y son '.count($campos); 
+                        $error = '<br>Error en archivo de catálogo '.$archivo_escogido.' . Error en número de columnas, no coincide, deberían ser 62 y son '.count($campos); 
                         $output = '<div class="panel">'.$error.'</div>';
                         
                         return $output;
@@ -1585,7 +1667,7 @@ class Importaproveedor extends Module
                         }
 
                         //el nuevo catálogo trae varios campos para la descripción. Voy a unirlos todos, con el de medidas y que quién cree el producto lo deje bien
-                        $descripcion = pSQL(trim($campos[26])).'<br><br>'.pSQL(trim($campos[17])).'<br><br>'.pSQL(trim($campos[18])).'<br><br>'.pSQL(trim($campos[19])).'<br><br>'.pSQL(trim($campos[20]));
+                        $descripcion = pSQL(trim($campos[26])).'<br><br>'.pSQL(trim($campos[16])).'<br><br>'.pSQL(trim($campos[17])).'<br><br>'.pSQL(trim($campos[18])).'<br><br>'.pSQL(trim($campos[19])).'<br><br>'.pSQL(trim($campos[20]));
                         if (!$descripcion || $descripcion == '' || is_null($descripcion)){
                             $descripcion = '';
                         }
@@ -2359,10 +2441,11 @@ class Importaproveedor extends Module
 
                         $descripcion_ing = $nombre_ing.' <br><br>'.$composicion.' <br><br>'.$personaje.' <br><br>'.$desc_color.' <br><br>'.$desc_talla.' <br><br>'.$medida_gen;
 
+                        //quitamos espacios y / del nombre para generar url de producto
                         if ($referencia_base) {
-                            $url_producto = 'https://www.cerdagroup.com/es/product/show/'.$referencia_base.'/'.str_replace(' ','-', $nombre).'/';
+                            $url_producto = 'https://www.cerdagroup.com/es/product/show/'.$referencia_base.'/'.str_replace(' ','-', str_replace('/','-', $nombre)).'/';
                         } else {
-                            $url_producto = 'https://www.cerdagroup.com/es/product/show/'.$referencia.'/'.str_replace(' ','-', $nombre).'/';
+                            $url_producto = 'https://www.cerdagroup.com/es/product/show/'.$referencia.'/'.str_replace(' ','-', str_replace('/','-', $nombre)).'/';
                         }
 
                         //para Cerdá:
@@ -2478,7 +2561,11 @@ class Importaproveedor extends Module
                         if (!$descripcion || $descripcion == '' || is_null($descripcion)){
                             $descripcion = '';
                         }
-                        $descripcion = $descripcion.'<br><br>https://www.grupoerik.com/es/buscar?controller=search&orderby=position&orderway=desc&search_query='.$referencia.'&submit_search=';
+                        //19/05/2023 pongo de moemnto shop. antes de grupoerik porque parece que estén cambiando su web y no se ve
+                        // $descripcion = $descripcion.'<br><br>https://www.grupoerik.com/es/buscar?controller=search&orderby=position&orderway=desc&search_query='.$referencia.'&submit_search=';
+                        $url_shop_erik = 'https://shop.grupoerik.com/es/buscar?controller=search&orderby=position&orderway=desc&submit_search=&search_query=';
+
+                        $descripcion = $descripcion.'<br><br>'.$url_shop_erik.$referencia;
 
                         $ean = trim($campos[4]);
                         if (!$ean || $ean == '' || is_null($ean)){
@@ -2488,7 +2575,11 @@ class Importaproveedor extends Module
                         $url_imagen = trim($campos[5]);
                         if (!$url_imagen || $url_imagen == '' || is_null($url_imagen)){
                             $url_imagen = '';
-                        }
+                        } else {
+                            //19/05/2023 por ahora voy a arreglar la url ya que la envían como https://www.grupoerik.com y parece que solo funciona si es https://shop.grupoerik.com
+                            $url_imagen = str_replace("www.grupoerik.com", "shop.grupoerik.com", $url_imagen);
+                        }                       
+
 
                         //el catálogo descargado no tiene stock, solo "Disponible", "Bajo de stock" o "No disponible". Pondremos stock y disponiblilidad en función de ese parámetro
                         $estado = trim($campos[7]);
@@ -2545,8 +2636,15 @@ class Importaproveedor extends Module
                             $fecha_llegada = date("Y-m-d", strtotime($fecha_llegada));
                         }
 
+                        //22/06/2023 Por ahora vamos a considerar que si pone Disponible pero hay fecha de llegada es que no es disponible al momento si no en plan prepedido, y por tanto no lo dejamos disponible.
+                        if ($fecha_llegada != '0000-00-00') {
+                            $stock = 0;
+                            $disponibilidad = 0;
+                        }
+
                                              
-                        $url_producto = 'https://www.grupoerik.com/es/buscar?controller=search&orderby=position&orderway=desc&search_query='.$referencia.'&submit_search=';     
+                        // $url_producto = 'https://www.grupoerik.com/es/buscar?controller=search&orderby=position&orderway=desc&search_query='.$referencia.'&submit_search='; 
+                        $url_producto = $url_shop_erik.$referencia;     
                         
                         //para Erik:
                         $id_proveedor = 8;
@@ -4057,9 +4155,9 @@ class Importaproveedor extends Module
                             $descripcion_ing = $nombre_ing.' <br><br>'.$composicion.' <br><br>'.$personaje.' <br><br>'.$desc_color.' <br><br>'.$desc_talla.' <br><br>'.$medida_gen;
 
                             if ($surtido) {
-                                $url_producto = 'https://www.cerdagroup.com/es/product/show/'.$surtido.'/'.str_replace(' ','-', $nombre).'/';
+                                $url_producto = 'https://www.cerdagroup.com/es/product/show/'.$surtido.'/'.str_replace(' ','-', str_replace('/','-', $nombre)).'/';
                             } else {
-                                $url_producto = 'https://www.cerdagroup.com/es/product/show/'.$referencia.'/'.str_replace(' ','-', $nombre).'/';
+                                $url_producto = 'https://www.cerdagroup.com/es/product/show/'.$referencia.'/'.str_replace(' ','-', str_replace('/','-', $nombre)).'/';
                             }
 
                             //para Cerdá:
@@ -4253,15 +4351,11 @@ class Importaproveedor extends Module
         Obtenemos todos junto a su disponibilidad de catálogo y coste. Si están disponibles comprobamos su coste, si no están disponibles solo les quitamos permitir pedido, y si en el futuro se les vuelve a poner se volverá a comprobar el coste.
         Además para actualizar los costes de productos en prepedido, que son ignorados por el proceso, no los quitamos de la consulta y sacamos si son o no, y en su caso solo se comprueba el coste sin tocar permitir pedido
     */
+    //20/03/2023 Vamos a quitar los procesos de quitar y poner categorías al descatalogar/recatalogar y solo poner y quitar visibility none-both
     protected function postProcessAsignarPermitirPedido() 
     {
         $tabla = '<table class="table"><tbody>';
-        $tabla .= '<tr><th>ID Producto</th><th>Referencia Producto</th><th>EAN</th><th>Referencia Proveedor</th><th>Proveedor</th><th>Motivo</th></tr>';
-
-        //Sacar los proveedores disponibles en la tabla frik_import_catalogos para crear la consulta
-        // $sql_proveedores_en_tabla = 'SELECT DISTINCT id_proveedor 
-        // FROM frik_import_catalogos';
-        // $proveedores_en_tabla = Db::getInstance()->ExecuteS($sql_proveedores_en_tabla);
+        $tabla .= '<tr><th>ID Producto</th><th>Referencia Producto</th><th>EAN</th><th>Referencia Proveedor</th><th>Proveedor</th><th>Motivo</th></tr>';        
 
         //08/08/2022 sacamos los id de proveedor que están configurados para permitir pedido y creamos el "array" para la consulta de mysql
         $proveedores_permitir_json = Configuration::get('IMPORTA_PROVEEDOR_PROVEEDORES');
@@ -4272,24 +4366,23 @@ class Importaproveedor extends Module
             
             return $output;
         }
+
         $sql_proveedores = '';
-        foreach ($proveedores_tabla AS $proveedor_en_tabla){
-            $id_proveedor_en_tabla = $proveedor_en_tabla['id_proveedor'];
+        foreach ($proveedores_tabla AS $id_proveedor){    
             if (!$sql_proveedores){
                 //primera iteración, $sql_proveedores está vacia
-                $sql_proveedores .= '(psu.id_supplier = '.$id_proveedor_en_tabla.' AND pro.id_supplier = '.$id_proveedor_en_tabla.' AND ica.id_proveedor = '.$id_proveedor_en_tabla.')';
+                $sql_proveedores .= '(psu.id_supplier = '.$id_proveedor.' AND pro.id_supplier = '.$id_proveedor.' AND ica.id_proveedor = '.$id_proveedor.')';
             }else{
-                $sql_proveedores .= ' OR (psu.id_supplier = '.$id_proveedor_en_tabla.' AND pro.id_supplier = '.$id_proveedor_en_tabla.' AND ica.id_proveedor = '.$id_proveedor_en_tabla.')';
+                $sql_proveedores .= ' OR (psu.id_supplier = '.$id_proveedor.' AND pro.id_supplier = '.$id_proveedor.' AND ica.id_proveedor = '.$id_proveedor.')';
             }            
         }  
         
         //Analizamos los productos que SI tienen Permitir Pedido
+
         //Primero los que tienen Permitir Pedido, aparecen en los catálogos pero ya no están disponibles
-        //sacar los ids de los productos que tienen check de permitir pedido, son de HEO (ids 4 ), Abysse (ids 14), Redstring (ids 24), Karactermanía (ids 53), Grupo Erik (ids 8), etc ignorando atributos para que no salgan repeticiones, que no estén en la categoría prepedido (id_category=121), y que en el catálogo correspondiente ya no aparecen como disponibles inmediatamente (ica.disponible != 1)(08/08/2022 esto ya no es así)
-        //17/08/2020 Temporalmente hacemos que este proceso ignore a los productos de Cerdá Kids, ya que por sus características los vamos a procesar aparte, por eso quitamos los que tengan id_manufacturer = 76
-        //07/10/2020 Idem productos de Cerdá Adult, id_manufacturer = 81
-        //22/11/2021 Idem productos de DMI, id_supplier = 160
-        //10/02/2022 Idem productos de Globomatik, id_supplier = 156
+        //sacar los ids de los productos que tienen check de permitir pedido, y son de los proveedores que tenemos en la tabla de catálogosy configurados para el proceso, ignorando atributos para que no salgan repeticiones, que no estén en la categoría prepedido (id_category=121)
+        //Aunque utilizando la lista de proveedores configurados debería bastar, a veces se ceulan productos con varios proveedores, por ejemplo Redstring y Cerdá, cuando no lo queremos. De modo que ignoramos Cerdá Kids y Adult, id_manufacturer = 76 y 81
+        //Ignoramos proveedor DMI, id_supplier = 160, Globomatik, id_supplier = 156
         //08/08/2022 sacamos coste y disponibilidad, ahora se procesan tanto los que tienen disponibilidad, para comprobar el coste, como los que no tienen, para quitar permitir pedidos. También sacamos si son prepedido, y a esos solo comprobamos coste
         $sql_productos_en_catalogo = 'SELECT pro.id_product AS idproducto, pro.reference AS referencia_presta, pro.ean13 AS ean, 
         pro.id_supplier AS idsupplier, psu.product_supplier_reference AS ref_proveedor, ica.eliminado AS eliminado, 
@@ -4305,7 +4398,7 @@ class Importaproveedor extends Module
             AND ava.id_product_attribute = 0
         JOIN lafrips_product_supplier psu ON psu.id_product = pro.id_product
             AND psu.id_product_attribute = 0
-        JOIN frik_import_catalogos ica ON TRIM(ica.referencia_proveedor) = TRIM(psu.product_supplier_reference)# ica.referencia_proveedor = psu.product_supplier_reference 
+        JOIN frik_import_catalogos ica ON ica.referencia_proveedor = psu.product_supplier_reference 
         WHERE ava.out_of_stock = 1                   
         AND pro.id_manufacturer NOT IN (76, 81) # Cerdá Kids y Adult        
         AND pro.id_supplier NOT IN (156, 160) # Globomatik y DMI
@@ -4323,37 +4416,61 @@ class Importaproveedor extends Module
             //disponibilidad y no prepedido
             if ($producto['disponibilidad'] != 1 && !$producto['prepedido']) {
                 //NO DISPONIBLE
-                //Marcamos permitir pedidos (0 no permitir, 1 permitir, 2 por defecto no permitir)
-                StockAvailable::setProductOutOfStock($producto['idproducto'], 2);
+                $id_product = $producto['idproducto'];
+                //Marcamos no permitir pedidos (0 no permitir, 1 permitir, 2 por defecto no permitir)
+                StockAvailable::setProductOutOfStock($id_product, 2);
                 $numeroproductosnopermitir++;
+
+                $operacion = 'Quitar Permitir';
+                //si no tiene stock físico lo ponemos como visibility none
+                if (StockAvailable::getQuantityAvailableByProduct($id_product) < 1) { 
+                    //marcamos visibility none porque no tiene stock en Prestashop ni permitir pedidos
+                    if (Db::getInstance()->getValue("SELECT visibility FROM lafrips_product WHERE id_product = $id_product") != 'none') {
+                        Db::getInstance()->Execute("UPDATE lafrips_product SET visibility = 'none', date_upd = NOW() WHERE id_product = $id_product");
+                        Db::getInstance()->Execute("UPDATE lafrips_product_shop SET visibility = 'none', date_upd = NOW() WHERE id_product = $id_product");
+                        
+                        $operacion .= ' - visibility none';
+                    }
+                }
 
                 //Añadimos el log de lo que hemos hecho a frik_log_import_catalogos
                 $id_empleado = Context::getContext()->employee->id;
-                $nombre_empleado = Context::getContext()->employee->firstname;
-                $id_product = $producto['idproducto'];
+                $nombre_empleado = Context::getContext()->employee->firstname;                
                 $referencia_producto = $producto['referencia_presta'];
                 $ean = $producto['ean'];
                 $referencia_proveedor = $producto['ref_proveedor'];
                 $id_proveedor = $producto['idsupplier'];
                 $nombre_proveedor = Supplier::getNameById($id_proveedor);
                 $eliminado = $producto['eliminado'];
-                //el tipo de operación según si eliminado es 1 o no
-                $operacion = '';
+                //el tipo de operación según si eliminado es 1 o no                
                 if ($eliminado){
-                    $operacion = 'Eliminado de catálogo';
+                    $operacion .= ' - Eliminado de catálogo';
                 } else {
-                    $operacion = 'Sin stock en catálogo';
+                    $operacion .= ' - Sin stock en catálogo';
                 }
 
                 Db::getInstance()->Execute("INSERT INTO frik_log_import_catalogos
                     (operacion, id_product, referencia_presta, ean, referencia_proveedor, id_proveedor, nombre_proveedor, user_id, user_nombre, date_add) 
-                    VALUES ('Quitar Permitir - ".$operacion."',".$id_product.",'".$referencia_producto."','".$ean."','".$referencia_proveedor."',".$id_proveedor.",
+                    VALUES ('".$operacion."',".$id_product.",'".$referencia_producto."','".$ean."','".$referencia_proveedor."',".$id_proveedor.",
                             '".$nombre_proveedor."',".$id_empleado.",'".$nombre_empleado."',  NOW());");    
 
                 $tabla .= '<tr><td>'.$id_product.'</td><td>'.$referencia_producto.'</td><td>'.$ean.'</td><td>'.$referencia_proveedor.'</td><td>'.$nombre_proveedor.'</td><td>'.$operacion.'</td></tr>';
 
             } else {
-                //Producto disponible con el proveedor actual, o prepedido, comprobamos coste
+                //Producto disponible con el proveedor actual, o prepedido, que se queda como estaba con permitir pedido. 
+                //comprobamos que el producto tenga visibility both
+                $id_product = $producto['idproducto'];
+                if (Db::getInstance()->getValue("SELECT visibility FROM lafrips_product WHERE id_product = $id_product") != 'both') {
+                    Db::getInstance()->Execute("UPDATE lafrips_product SET visibility = 'both', date_upd = NOW() WHERE id_product = $id_product");
+                    Db::getInstance()->Execute("UPDATE lafrips_product_shop SET visibility = 'both', date_upd = NOW() WHERE id_product = $id_product");
+                    
+                    Db::getInstance()->Execute("INSERT INTO frik_log_import_catalogos
+                    (operacion, id_product, referencia_presta, ean, referencia_proveedor, id_proveedor, nombre_proveedor, date_add) 
+                    VALUES ('Check visibility both', $id_product,'".$producto['referencia_presta']."','".$producto['ean']."','".$producto['ref_proveedor']."',".$producto['idsupplier'].",
+                            '".Supplier::getNameById($producto['idsupplier'])."', NOW());"); 
+                }
+                
+                //comprobamos coste
                 //Si el coste de proveedor en catálogo actual es diferente del que tenemos en Prestashop, hay que actualizarlo y guardar el cambio en frik_log_cambio_coste_permitir_pedido
                 $coste_proveedor = $producto['coste_proveedor'];
                 $pro_wholesaleprice = $producto['pro_wholesaleprice'];
@@ -4361,47 +4478,46 @@ class Importaproveedor extends Module
 
                 //comparamos los precios con valor absoluto de la resta para evitar problemas de decimales etc
                 if (ABS($coste_proveedor - $pro_wholesaleprice) > 0.1) {
-                    $producto_permitido = new Product($producto['idproducto']);
+                    $producto_permitido = new Product($id_product);
                     
                     $variacion = (($coste_proveedor - $pro_wholesaleprice)/$pro_wholesaleprice)*100;
                     //actualizamos coste
                     $producto_permitido->wholesale_price = $coste_proveedor;
-                    $producto_permitido->save();
+                    $producto_permitido->update();
                     //guardamos en tabla log              
                     Db::getInstance()->Execute("INSERT INTO frik_log_cambio_coste_permitir_pedido
                     (id_product, product_reference, product_supplier_reference, old_wholesale_price, new_wholesale_price, porcentaje_variacion, id_supplier, supplier_name, date_add)
                     VALUES
-                    (".$producto['idproducto'].",'".$producto_permitido->reference."','".$producto['ref_proveedor']."',".$pro_wholesaleprice.",".$coste_proveedor.",".$variacion.",".$producto['idsupplier'].",'".Supplier::getNameById($producto['idsupplier'])."', NOW())");
+                    ($id_product,'".$producto_permitido->reference."','".$producto['ref_proveedor']."',".$pro_wholesaleprice.",".$coste_proveedor.",".$variacion.",".$producto['idsupplier'].",'".Supplier::getNameById($producto['idsupplier'])."', NOW())");
                 }
                 
                 if (ABS($coste_proveedor - $psu_supplier_price) > 0.1) {
                     //si no coincide precio de proveedor con lo que hay en product_supplier
                     //instanciamos el product supplier, sacando primero el id_product_supplier (0 es el id_product_attribute)
-                    $id_product_supplier = ProductSupplier::getIdByProductAndSupplier($producto['idproducto'], 0, $producto['idsupplier']);
+                    $id_product_supplier = ProductSupplier::getIdByProductAndSupplier($id_product, 0, $producto['idsupplier']);
                     $product_supplier = new ProductSupplier($id_product_supplier);  
                     //asignamos nuevo precio      
                     $product_supplier->product_supplier_price_te = $coste_proveedor;
-                    $product_supplier->save(); 
+                    $product_supplier->update(); 
                 }
                 
-            }
-                     
+            }                     
 
         }
 
         //Segundo, quitamos permitir pedido a los productos que lo tienen marcado y han desaparecido del catálogo de proveedor
         //10/06/2020 esta parte la podemos quitar ya que desde hace meses los productos que no aparecen en un nuevo catálogo se marcan como eliminado = 1 en lugar de borrarlos, luego esta consulta no daría resultados
-        //05/11/2020 Recupero la consulta porque al eliminarse entradas en frik_import_catalogos por accidente, quedan productos con permitir pedido que no se les quita nunca ya que al no estar en la tabla no se comprueba si tienen eliminado 1 o no, de modo que, como medida de seguridad, dejamos el proceso, adpatándolo a Cerdá etc
+        //05/11/2020 Recupero la consulta porque al eliminarse entradas en frik_import_catalogos por accidente, quedan productos con permitir pedido que no se les quita nunca ya que al no estar en la tabla no se comprueba si tienen eliminado 1 o no, de modo que, como medida de seguridad, dejamos el proceso, adaptándolo a Cerdá etc
         //22/11/2021 Ignoramos también productos DMI 'AND pro.id_supplier != 160'
         //17/03/2022 Ignoramos también productos Globomatik 'AND pro.id_supplier != 156'
 
         $sql_proveedores = '';
-        foreach ($proveedores_en_tabla AS $proveedor_en_tabla){
-            $id_proveedor_en_tabla = $proveedor_en_tabla['id_proveedor'];
+        foreach ($proveedores_tabla AS $id_proveedor){    
+            
             if (!$sql_proveedores){
-                $sql_proveedores .= '(pro.id_supplier = '.$id_proveedor_en_tabla.' AND psu.product_supplier_reference NOT IN (SELECT referencia_proveedor FROM frik_import_catalogos WHERE id_proveedor = '.$id_proveedor_en_tabla.'))';
+                $sql_proveedores .= '(pro.id_supplier = '.$id_proveedor.' AND psu.product_supplier_reference NOT IN (SELECT referencia_proveedor FROM frik_import_catalogos WHERE id_proveedor = '.$id_proveedor.'))';
             }else{
-                $sql_proveedores .= ' OR (pro.id_supplier = '.$id_proveedor_en_tabla.' AND psu.product_supplier_reference NOT IN (SELECT referencia_proveedor FROM frik_import_catalogos WHERE id_proveedor = '.$id_proveedor_en_tabla.'))';
+                $sql_proveedores .= ' OR (pro.id_supplier = '.$id_proveedor.' AND psu.product_supplier_reference NOT IN (SELECT referencia_proveedor FROM frik_import_catalogos WHERE id_proveedor = '.$id_proveedor.'))';
             }            
         }  
         
@@ -4413,8 +4529,7 @@ class Importaproveedor extends Module
         AND ava.id_product_attribute = 0
         AND psu.id_product_attribute = 0
         AND pro.id_supplier = psu.id_supplier
-        AND pro.id_manufacturer != 76
-        AND pro.id_manufacturer != 81
+        AND pro.id_manufacturer NOT IN (76, 81)        
         AND pro.id_supplier NOT IN (156, 160)        
         AND ('.$sql_proveedores.')         
         AND pro.id_product NOT IN (SELECT id_product FROM lafrips_category_product WHERE id_category = 121);';
@@ -4422,14 +4537,28 @@ class Importaproveedor extends Module
         $productos_no_en_catalogo = Db::getInstance()->ExecuteS($sql_productos_no_en_catalogo);
 
         foreach ($productos_no_en_catalogo as $producto) {
-            //Marcamos permitir pedidos (0 no permitir, 1 permitir, 2 por defecto no permitir)
-            StockAvailable::setProductOutOfStock($producto['idproducto'], 2);
+            //Marcamos no permitir pedidos (0 no permitir, 1 permitir, 2 por defecto no permitir)
+            $id_product = $producto['idproducto'];
+            StockAvailable::setProductOutOfStock($id_product, 2);
             $numeroproductosnopermitir++;
+
+            $operacion = 'Quitar Permitir'; 
+            //si no tiene stock físico lo ponemos como visibility none
+            if (StockAvailable::getQuantityAvailableByProduct($id_product) < 1) { 
+                //marcamos visibility none porque no tiene stock en Prestashop ni permitir pedidos
+                if (Db::getInstance()->getValue("SELECT visibility FROM lafrips_product WHERE id_product = $id_product") != 'none') {
+                    Db::getInstance()->Execute("UPDATE lafrips_product SET visibility = 'none', date_upd = NOW() WHERE id_product = $id_product");
+                    Db::getInstance()->Execute("UPDATE lafrips_product_shop SET visibility = 'none', date_upd = NOW() WHERE id_product = $id_product");
+                    
+                    $operacion .= ' - visibility none';
+                }
+            }
+
+            $operacion .= ' - Fuera de Catálogo&tabla';
 
             //Añadimos el log de lo que hemos hecho a frik_log_import_catalogos
             $id_empleado = Context::getContext()->employee->id;
-            $nombre_empleado = Context::getContext()->employee->firstname;
-            $id_product = $producto['idproducto'];
+            $nombre_empleado = Context::getContext()->employee->firstname;            
             $referencia_producto = $producto['referencia_presta'];
             $ean = $producto['ean'];
             $referencia_proveedor = $producto['ref_proveedor'];
@@ -4437,7 +4566,7 @@ class Importaproveedor extends Module
             $nombre_proveedor = Supplier::getNameById($id_proveedor);
             Db::getInstance()->Execute("INSERT INTO frik_log_import_catalogos
                  (operacion, id_product, referencia_presta, ean, referencia_proveedor, id_proveedor, nombre_proveedor, user_id, user_nombre, date_add) 
-                 VALUES ('Quitar Permitir - Fuera de Catálogo&tabla',".$id_product.",'".$referencia_producto."','".$ean."','".$referencia_proveedor."',".$id_proveedor.",
+                 VALUES ('$operacion', $id_product ,'".$referencia_producto."','".$ean."','".$referencia_proveedor."',".$id_proveedor.",
                         '".$nombre_proveedor."',".$id_empleado.",'".$nombre_empleado."',  NOW());");  
 
 
@@ -4456,8 +4585,8 @@ class Importaproveedor extends Module
 
         //Ahora sacamos los productos a los que asignar permitir pedidos
         //sacamos los id de proveedor que están configurados para permitir pedido y creamos el "array" para la consulta de mysql
-        $proveedores_permitir_json = Configuration::get('IMPORTA_PROVEEDOR_PROVEEDORES');
-        $proveedores_tabla = json_decode($proveedores_permitir_json);
+        // $proveedores_permitir_json = Configuration::get('IMPORTA_PROVEEDOR_PROVEEDORES');
+        // $proveedores_tabla = json_decode($proveedores_permitir_json);
         $lista_proveedores = implode(',', $proveedores_tabla);
         if (!$lista_proveedores){
             //si no hay proveedores configurados para permitir, salimos mostrando solo los productos a los que se han quitado permitir pedido
@@ -4493,6 +4622,7 @@ class Importaproveedor extends Module
         //no tengan la categoría No permitir Pedido id 2440
         // -tengan como proveedor alguno de los de la tabla frik_import_catalogos que están configurados para permitir pedido y estén disponibles en el catálogo
         //Si el producto está descatalogado se comprobará si tenemos sus categorías guardades en la tabla frik_aux_category_product, si lo está lo recatalogamos, si no, aparecerá después como producto descatalogado con stock 
+        //20/03/2023 Vamos a quitar los procesos de quitar y poner categorías al descatalogar/recatalogar y solo poner y quitar visibility none-both, de modo que ya no marcamos categorías
         //Si el precio de proveedor es diferente en más de un 10% se cambiará por el nuevo precio
         //si no tuviera peso, se le pone 1.111 por defecto
 
@@ -4509,23 +4639,11 @@ class Importaproveedor extends Module
             $antiguedad_pvp = 'AND pro.price * 1.21 >= '.$pvp_limite.' ';
         } elseif (($antiguedad_limite > 0) && ($pvp_limite == 0)) {
             $antiguedad_pvp = 'AND DATEDIFF(NOW() ,pro.date_add) < '.$antiguedad_limite.' ';
-        }
-        
-        //17/08/2020 Temporalmente hacemos que este proceso ignore a los productos de Cerdá Kids, ya que por sus características los vamos a procesar aparte, por eso quitamos los que tengan id_manufacturer = 76
+        }              
 
         //sacamos los productos:
         $sql_productos_para_permitir = 'SELECT pro.id_product AS id_product, pro.reference AS referencia_presta, pro.ean13 AS ean,
-            psu.id_supplier AS id_supplier,  
-            CASE
-            WHEN pro.id_category_default = 89 THEN 1
-            ELSE 0
-            END
-            AS descatalogado,
-            CASE
-            WHEN pro.id_product IN (SELECT id_product FROM frik_aux_category_product WHERE cat_default = 1)  THEN 1
-            ELSE 0
-            END
-            AS recatalogable,
+            psu.id_supplier AS id_supplier,              
             psu.product_supplier_reference AS referencia_proveedor, 
             REPLACE(ica.precio, ",","." ) AS coste_proveedor,     
             CASE
@@ -4551,7 +4669,7 @@ class Importaproveedor extends Module
         AND pro.is_virtual = 0
          '.$antiguedad_pvp.'
         AND pro.active = 1
-        AND pro.id_manufacturer != 76
+        AND pro.id_manufacturer NOT IN (76, 81)
         AND pro.cache_is_pack = 0
         AND pro.id_product NOT IN (SELECT id_product FROM lafrips_product_attribute) 
         AND pro.id_product NOT IN (SELECT DISTINCT id_product FROM lafrips_specific_price
@@ -4598,33 +4716,61 @@ class Importaproveedor extends Module
             $producto_permitido = new Product($producto['id_product']);
 
             $recatalogar = '';
-            //comprobamos si está descatalogado y si se puede recatalogar
-            if ($producto['descatalogado'] && $producto['recatalogable']){
-                //comprobamos que tenga las categorías disponible recatalogar 2184 y que no tenga ya recatalogar 2179
-                $categorias = Product::getProductCategories($producto['id_product']);
-                if (in_array(2184, $categorias) && !in_array(2179, $categorias)){
-                    //marcamos recatalogar
-                    $producto_permitido->addToCategories([2179]);            
-                    $recatalogar = 'Si';
-                    //introducir el id_product, el proceso (recatalogar_tarea_permitir) y la fecha en la tabla log frik_log_descatalogar
-                    //22/12/2020 metemos también el id_employee desde el context o 44 de automatizador si no lo hay
-                    $id_employee_automat = Context::getContext()->employee->id;
-                    if (!$id_employee_automat) {
-                        $id_employee_automat = 44;
-                    }
-                    
-                    Db::getInstance()->Execute("INSERT INTO frik_log_descatalogar (id_product, proceso, id_employee, fecha) VALUES ('".$producto['id_product']."', 'marcado_recatalogar_proceso_permitir',".$id_employee_automat.", NOW());");
-                    //Db::getInstance()->Execute("INSERT INTO frik_log_descatalogar (id_product, proceso, fecha) VALUES ('".$producto['id_product']."', 'marcado_recatalogar_proceso_permitir', NOW());"); 
-                    
+
+            //27/03/2023 Marcamos visibility both si no la tiene. Ponemos visibility both al producto. Lo hacemos utilizando la instancia, ya que si no al hacer $producto->update() después se pierde el dato, guarda el que tenía al instanciar
+            if ($producto_permitido->visibility != 'both') {
+                $producto_permitido->visibility = 'both';
+
+                $id_employee_automat = Context::getContext()->employee->id;
+                if (!$id_employee_automat) {
+                    $id_employee_automat = 44;
                 }
+                
+                Db::getInstance()->Execute("INSERT INTO frik_log_descatalogar (id_product, proceso, id_employee, fecha) VALUES ('".$producto['id_product']."', 'visibility_both_proceso_permitir',".$id_employee_automat.", NOW());");
             }
             
+            
+            // if (Db::getInstance()->getValue("SELECT visibility FROM lafrips_product WHERE id_product = ".$producto['id_product']) != 'both') {
+            //     Db::getInstance()->Execute("UPDATE lafrips_product SET visibility = 'both', date_upd = NOW() WHERE id_product = ".$producto['id_product']);
+            //     Db::getInstance()->Execute("UPDATE lafrips_product_shop SET visibility = 'both', date_upd = NOW() WHERE id_product = ".$producto['id_product']);
+
+            //     $id_employee_automat = Context::getContext()->employee->id;
+            //     if (!$id_employee_automat) {
+            //         $id_employee_automat = 44;
+            //     }
+                
+            //     Db::getInstance()->Execute("INSERT INTO frik_log_descatalogar (id_product, proceso, id_employee, fecha) VALUES ('".$producto['id_product']."', 'visibility_both_proceso_permitir',".$id_employee_automat.", NOW());");
+            // }
+           
+
+            // $recatalogar = '';
+            // //comprobamos si está descatalogado y si se puede recatalogar
+            // if ($producto['descatalogado'] && $producto['recatalogable']){
+            //     //comprobamos que tenga las categorías disponible recatalogar 2184 y que no tenga ya recatalogar 2179
+            //     $categorias = Product::getProductCategories($producto['id_product']);
+            //     if (in_array(2184, $categorias) && !in_array(2179, $categorias)){
+            //         //marcamos recatalogar
+            //         $producto_permitido->addToCategories([2179]);            
+            //         $recatalogar = 'Si';
+            //         //introducir el id_product, el proceso (recatalogar_tarea_permitir) y la fecha en la tabla log frik_log_descatalogar
+            //         //22/12/2020 metemos también el id_employee desde el context o 44 de automatizador si no lo hay
+            //         $id_employee_automat = Context::getContext()->employee->id;
+            //         if (!$id_employee_automat) {
+            //             $id_employee_automat = 44;
+            //         }
+                    
+            //         Db::getInstance()->Execute("INSERT INTO frik_log_descatalogar (id_product, proceso, id_employee, fecha) VALUES ('".$producto['id_product']."', 'marcado_recatalogar_proceso_permitir',".$id_employee_automat.", NOW());");
+            //         //Db::getInstance()->Execute("INSERT INTO frik_log_descatalogar (id_product, proceso, fecha) VALUES ('".$producto['id_product']."', 'marcado_recatalogar_proceso_permitir', NOW());"); 
+                    
+            //     }
+            // }
+            
             //si ejecutamos manualmente, aquí ponemos que muestre mensaje de Recatalogar a mano, si está descatalogado y no está en la tabla frik_aux_category_product
-            if ($producto['descatalogado'] == 1 && $producto['recatalogable'] == 0){
-                $recatalogar = 'RECATALOGAR A MANO';
-            } elseif ($producto['descatalogado'] == 0){
-                $recatalogar = 'No';
-            }
+            // if ($producto['descatalogado'] == 1 && $producto['recatalogable'] == 0){
+            //     $recatalogar = 'RECATALOGAR A MANO';
+            // } elseif ($producto['descatalogado'] == 0){
+            //     $recatalogar = 'No';
+            // }
 
             $cambiarcoste = 'No';
             if ($producto['cambiar_coste']){
@@ -4648,7 +4794,7 @@ class Importaproveedor extends Module
             $product_supplier = new ProductSupplier($id_product_supplier);  
             //asignamos nuevo precio      
             $product_supplier->product_supplier_price_te = $producto['coste_proveedor'];
-            $product_supplier->save();                    
+            $product_supplier->update();                    
 
             $comprobarpeso = 'No';
             //comprobamos que el peso no sea 0, si lo es le ponemos 1.111
@@ -4661,36 +4807,11 @@ class Importaproveedor extends Module
             if ($producto_permitido->id_supplier !== $producto['id_supplier']){            
                 $producto_permitido->id_supplier = $producto['id_supplier'];
             }
+           
+            //30/03/2023 generamos el array de available_later con todos los idiomas sacando el mensaje de la tabla lafrips_mensaje_disponibilidad con la función mensajeAvailable(). La función devuelve un array, en 0 está available_now y en 1 available_later                
+            $producto_permitido->available_later = $this->mensajeAvailable($producto['id_supplier'])[1];          
 
-            //mensaje prepedido. Si es de Cerdá Kids ponemos otro
-            //id de manufacturer by name
-            $id_manufacturer_cerda_kids = (int)Manufacturer::getIdByName('Cerdá Kids');
-            if ($producto_permitido->id_manufacturer == $id_manufacturer_cerda_kids) {
-                $available_later = 'Atención: el plazo de envío de este artículo es de tres a seis días.';
-            } else {
-                $available_later = 'Atención: el plazo de envío de este artículo es de una semana a diez días.';
-            }
-
-            //10/01/2022 Si el proveedor que ponemos es Difuzed, ponemos otro mensaje
-            if ($producto['id_supplier'] == 7) {
-                $available_later = 'Atención: el plazo de envío de este artículo es de hasta tres semanas.';
-            } else {
-                $available_later = 'Atención: el plazo de envío de este artículo es de una semana a diez días.';
-            }
-
-            //generamos el array de idiomas para available later
-            $idiomas = Language::getLanguages();
-
-            $available_later_todos = array();
-            foreach ($idiomas as $idioma) {                    
-                $available_later_todos[$idioma['id_lang']] = $available_later;                    
-            }
-
-            $producto_permitido->available_later = $available_later_todos; 
-            
-            // $producto_permitido->available_later = [1 => $available_later, 11 => $available_later, 12 => $available_later, 13 => $available_later, 14 => $available_later];  
-
-            $producto_permitido->save();
+            $producto_permitido->update();
 
             //Marcamos permitir pedidos (0 no permitir, 1 permitir, 2 por defecto)
             StockAvailable::setProductOutOfStock($producto['id_product'], 1);

@@ -102,6 +102,8 @@ $(function(){
 
         //sacamos el nombre del producto en esa línea
         var nombre_linea_producto = $('#nombre_linea_'+dataObj['id']).text();
+        //06/09/2023 sacamos la descripción para rellenar el textarea del dialog, añdiendo una frase para la IA de descripciones
+        var descripcion_linea_producto = $('#descripcion_linea_'+dataObj['id']).text();
 
         //inicializamos el cuadro de diálogo(jquery-ui) oculto
         $( "#dialog" ).dialog({ 
@@ -122,7 +124,12 @@ $(function(){
         $("#dialog").dialog("open");    
         //rellenamos el input de nombre con el nombre de la línea seleccionada
         $("#dialog_nombre_producto").val(nombre_linea_producto);
+        //06/09/2023 rellenamos el textarea de descripcion con la descripción de la línea seleccionada más un par de frases para la IA del redactor
+        $("#dialog_descripcion_producto").val(descripcion_linea_producto + "<br><br>Producto con licencia oficial.<br>Un artículo perfecto para un regalo original o para un capricho.");
 
+        //06/09/2023 llamamos a cuentaCaracteres() para poner el nº junto a los inputas para no pasarnos
+        cuentaCaracteres(document.querySelector('#dialog_descripcion_producto'));
+        cuentaCaracteres(document.querySelector('#dialog_nombre_producto'));
 
         //Jquery que cuando se pulse un botón de la clase ui-button-titlebar-close (la x de la esquina) esconda los mensajes de error del dialog y limpie el 
         //input text de modo que se "resetee", si no, cada vez que se abre muestra el contenido anterior
@@ -136,6 +143,7 @@ $(function(){
             $("#check_importar").removeAttr('checked'); //quitamos check de "copiar característics"
             $('#categorias_clonar').empty(); //en caso de haber buscado un producto para copiar, vaciamos los resultados            
             $("#dialog_nombre_producto").val('');
+            $("#dialog_descripcion_producto").val('');
         });
 
         //Cuando el usuario pulsa en el botón de crear, lanzamos la función que chequeará la referencia y si es correcto lanzará la creación del producto
@@ -144,7 +152,9 @@ $(function(){
             ////console.log($("#referencia_nuevo").val());
             var referencia_introducida = $("#referencia_nuevo").val();
             var nombre_producto = $("#dialog_nombre_producto").val();  
+            var descripcion_producto = $("#dialog_descripcion_producto").val(); 
             dataObj['nombre_producto'] = nombre_producto;  
+            dataObj['descripcion_producto'] = descripcion_producto;  
             //metemos si el check de "copiar características" está marcado, si no no va por post
             // console.log('check importar??='+ $("#check_importar:checked" ).val());
             dataObj['check_importar'] = $("#check_importar:checked" ).val();  
@@ -323,13 +333,16 @@ $(function(){
         var dataObj = {};
         var ids_productos_catalogo = [];
         var nombre_linea_producto = '';
+        //06/09/2023 ponemos textarea para descripción, cogiendo la del producto sobre el que se pulsa Crear
+        var descripcion_linea_producto = '';
         //buscamos todos los checkbox checados y almacenamos los id_import_catalogos de cada uno
         $('input[type=checkbox]:checked').each(function () {
             id_checkbox = $(this).attr('id').split('|');
             //sacamos el id del producto que es la parte derecha del | id del checkbox 
             ids_productos_catalogo.push(id_checkbox[1]);
-            //guardamos el nombre del producto para rellenar el input cuando pedimos nombre para nuevo producto, da igual que guardemos el último. Lo sacamos del text del <td> clase nombre_linea, un span que contiene el nombre
+            //guardamos el nombre del producto para rellenar el input cuando pedimos nombre para nuevo producto, da igual que guardemos el último. Lo sacamos del text del <td> clase nombre_linea, un span que contiene el nombre. 06/09/2023 lo mismo para descripción
             nombre_linea_producto = $('#nombre_linea_'+id_checkbox[1]).text(); 
+            descripcion_linea_producto = $('#descripcion_linea_'+id_checkbox[1]).text(); 
         });
         //guardamos el array de ids en el array dataObj que se enviará con Ajax a la función crearproductoatributos
         dataObj['ids'] = ids_productos_catalogo;
@@ -351,6 +364,8 @@ $(function(){
         $("#dialog").dialog("open");   
         //rellenamos el input de nombre con el nombre de uno de los seleccionados para formar el producto
         $("#dialog_nombre_producto").val(nombre_linea_producto);
+        //06/09/2023 igual para descripción, añadiendo frase para IA de redactor
+        $("#dialog_descripcion_producto").val(descripcion_linea_producto + "<br><br>Producto con licencia oficial.<br>Un artículo perfecto para un regalo original o para un capricho.");
 
         //Jquery que cuando se pulse un botón de la clase ui-button-titlebar-close (la x de la esquina) esconda los mensajes de error del dialog y limpie el 
         //input text de modo que se "resetee", si no, cada vez que se abre muestra el contenido anterior
@@ -364,7 +379,7 @@ $(function(){
             $("#check_importar").removeAttr('checked'); //quitamos check de "copiar característics"
             $('#categorias_clonar').empty();
             $("#dialog_nombre_producto").val('');
-            
+            $("#dialog_descripcion_producto").val('');
         });
 
         //Cuando el usuario pulsa en el botón de comprobar, lanzamos la función que chequeará la referencia y si es correcto tendremos que mostrar un select con los grupos de atributos. Cuando se escoja uno, se deberán mostrar tantos inputs como checkbox se han marcado para los atributos, un input por referencia, y un select con los atributos que corresponden al grupo de atributos por cada atributo
@@ -373,7 +388,8 @@ $(function(){
             e.preventDefault();
             //console.log($("#referencia_nuevo").val());
             var referencia_introducida = $("#referencia_nuevo").val();  
-            var nombre_producto = $("#dialog_nombre_producto").val();          
+            var nombre_producto = $("#dialog_nombre_producto").val();   
+            var descripcion_producto = $("#dialog_descripcion_producto").val();       
             
             //comprobamos que la referencia introducida tenga formato AAA11111111
             if (/^[A-Za-z]{3}[0-9]{8}$/.test(referencia_introducida)){
@@ -404,6 +420,7 @@ $(function(){
                             $("#error_formato_ref").hide();
                             $("#referencia_nuevo").val('');
                             $("#dialog_nombre_producto").val('');
+                            $("#dialog_descripcion_producto").val('');
                             $("#dialog").dialog("close"); 
 
                             //Si la referencia es correcta y no está repetida tendremos que mostrar un select con los grupos de atributos
@@ -534,7 +551,8 @@ $(function(){
                                                                     });  
 
                                                                     //añadimos un input hidden con la referencia del producto guardada para sacarla cuando enviemos todos los datos por ajax para crear el producto, y otor con el nombre introducido
-                                                                    $('#span_combinaciones').append('<input type="hidden" id="referencia_nuevo_producto" value="'+dataObj.referencia+'"><input type="hidden" id="nombre_nuevo_producto" value="'+nombre_producto+'">');
+                                                                    //06/09/2023 VAYA CHAPUZA HICE!! añado la descripción a esto también
+                                                                    $('#span_combinaciones').append('<input type="hidden" id="referencia_nuevo_producto" value="'+dataObj.referencia+'"><input type="hidden" id="nombre_nuevo_producto" value="'+nombre_producto+'"><input type="hidden" id="descripcion_nuevo_producto" value="'+descripcion_producto+'">');
                                                                     
                                                                     //cuando uno de los select creados dinamicamente para los atributos cambia, eliminar de los otros la opción escogida. Además, si ya se había escogido un atributo, volver a permitir que sea seleccionado, es decir, ponerlos enabled de nuevo
                                                                     //primero sacamos el id de atributo que se va a pulsar con el focus y lo guardamos en atributo_previo. Para no estar activando y desactivando el default(0 - Escoge atributo) si vale 0 le ponemos valor 99999999 de modo que no hará nada
@@ -671,7 +689,8 @@ $(function(){
             $('#dialog_submit_combinaciones').attr("disabled", "disabled");         
             var dataObj = {};
             dataObj['referencia'] = $('#referencia_nuevo_producto').val(); 
-            dataObj['nombre_producto'] = $('#nombre_nuevo_producto').val();     
+            dataObj['nombre_producto'] = $('#nombre_nuevo_producto').val(); 
+            dataObj['descripcion_producto'] = $('#descripcion_nuevo_producto').val();     
             //metemos si el check de "copiar características" está marcado, si no no va por post. Todo esto quedó oculto en el primer dialog 
             // console.log('check importar??='+ $("#check_importar:checked" ).val());
             dataObj['check_importar'] = $("#check_importar:checked" ).val();
@@ -944,3 +963,41 @@ $(function(){
     });
 
 });
+
+//06/09/2023 Añado esta función del redactor, cambiando los ids, para contar los caracteres del input del nombre y de la descripción del producto. La llamaré al mostrar el dialog y cada vez que se hace keyup en el input y el textarea
+//cuenta en tiempo real el número de caracteres en Descripción y nombre para enviar a la api
+//es llamada con "this" como argumento, this es el elemento que ha recibido el keyup, de modo que podemos sacar su id como su atributo para saber a qué elelemtno nos referimos
+function cuentaCaracteres(arg) {
+    // var num_caracteres = document.querySelector('#textarea_descripcion_api').value.length;
+    var num_caracteres = arg.value.length;
+    // +console.log('num_caracteres '+num_caracteres);
+
+    var element_id = arg.getAttribute('id');
+    // console.log('element_id '+element_id);
+
+    var numero = "";
+
+    if (element_id == 'dialog_descripcion_producto') {
+        if (num_caracteres < 400) {
+            numero = `<span class="badge badge-success">${num_caracteres}</span>`;
+        } else if (num_caracteres > 500) {
+            numero = `<span class="badge badge-danger">${num_caracteres}</span>`;
+        } else {
+            numero = `<span class="badge badge-warning">${num_caracteres}</span>`;
+        }
+    
+        document.querySelector('#caracteres_descripcion_api').innerHTML =  numero;
+    }
+
+    if (element_id == 'dialog_nombre_producto') {
+        if (num_caracteres < 42) {
+            numero = `<span class="badge badge-success">${num_caracteres}</span>`;
+        } else if (num_caracteres > 50) {
+            numero = `<span class="badge badge-danger">${num_caracteres}</span>`;
+        } else {
+            numero = `<span class="badge badge-warning">${num_caracteres}</span>`;
+        }
+    
+        document.querySelector('#caracteres_nombre_api').innerHTML = numero;
+    }    
+}

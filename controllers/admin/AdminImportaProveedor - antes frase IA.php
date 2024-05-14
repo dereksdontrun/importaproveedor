@@ -495,8 +495,6 @@ class AdminImportaProveedorController extends ModuleAdminController {
         $referencia = Tools::getValue('referencia', 0);
         //recibimos el nombre asignado en el input
         $nombre_producto = trim(pSQL(Tools::getValue('nombre_producto')));
-        //06/09/2023 recibimos la descripción del textarea
-        $descripcion_producto = Tools::getValue('descripcion_producto');
         $id_producto = Tools::getValue('id', 0);
         if(!$id_producto)
             die(Tools::jsonEncode(array('error'=> true, 'message'=>'No se encuentra el producto.')));
@@ -523,13 +521,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
             $id_proveedor = $datos_producto[0]['id_proveedor'];
             $peso = $datos_producto[0]['peso'];
             //desde 10/06/2020 la descripción la generamos al cargar el excel
-            //06/09/2023 Ahora ponemos un textarea para modificarla al crearlo, con lo que el dato lo recibimos por formulario y está en $descripcion_producto
-            // $descripcion = $datos_producto[0]['descripcion'];
-
-            //24/10/2023 Para productos Globomatik si queremos la descripción técnica ya que la tenemos bien almacenada, la pondremos en descripcion larga
-            if ($id_proveedor == 156) {
-                $descripcion_globomatik = $datos_producto[0]['descripcion'];
-            }
+            $descripcion = $datos_producto[0]['descripcion'];
             
             //13/07/2020 añadimos código para que intente añadir como imagen de producto la que tengamos almacenada en url_imagen. 20/07/2020 hemos añadido 5 campos más de imagen, si hay algo lo añadimos también al producto
             if ($datos_producto[0]['url_imagen']) {
@@ -692,8 +684,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
                         $meta_titulo = $descripciones['meta_title'];
     
                         //montamos la descripción uniendo a la que tenga el producto en el importador el nombre y descripción del porducto copiado
-                        //06/09/2023 ya no cogemos la descripcion del producto modelo
-                        // $descripcion = $descripcion.'<br><br>'.$nombre_copia.'<br>'.$descripcion_copia;
+                        $descripcion = $descripcion.'<br><br>'.$nombre_copia.'<br>'.$descripcion_copia;
                     }                   
 
                     //tipo de producto 
@@ -715,18 +706,12 @@ class AdminImportaProveedorController extends ModuleAdminController {
             $product->link_rewrite = $this->generaIdiomas($linkrewrite);
             $product->meta_title = $this->generaIdiomas($meta_titulo);
             $product->meta_description = $this->generaIdiomas($meta_descripcion);
-            $product->available_now = Tools::mensajeAvailable($id_proveedor)[0];
-            $product->available_later = Tools::mensajeAvailable($id_proveedor)[1];                            
+            $product->available_now = $this->mensajeAvailable($id_proveedor)[0];
+            $product->available_later = $this->mensajeAvailable($id_proveedor)[1];                              
             
             //para el importador solo queremos poner el español, ya que tendrán que limpiar la descripción, y desde 03/11/2021 lo metemos en la descripción corta para que no se dejen datos abajo. 
             // $product->description = $this->generaIdiomas($descripcion);  
-            // $product->description_short = array( 1 => $descripcion); 
-            $product->description_short = array( 1 => $descripcion_producto); 
-
-            //24/10/2023 Para productos Globomatik si queremos la descripción técnica ya que la tenemos bien almacenada, la pondremos en descripcion larga
-            if ($id_proveedor == 156) {
-                $product->description = $this->generaIdiomas($descripcion_globomatik);                
-            }
+            $product->description_short = array( 1 => $descripcion); 
 
             $product->price = $pvp;
             $product->wholesale_price = $precio_proveedor;
@@ -881,7 +866,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
 
                         $sql_insert_datos_catalogo_globomatik = 'INSERT INTO frik_catalogo_globomatik
                         (ean, referencia, nombre_es, nombre_en, descripcion_es, existe_prestashop, referencia_prestashop, id_product_prestashop, date_add) VALUES 
-                        ("'.$ean.'", "'.$referencia_proveedor.'", "'.$nombre_globomatik.'", "Creado/Insertado desde Importador", "'.$descripcion_producto.'", 1, "'.$referencia_producto.'", '.$product->id.', NOW())';
+                        ("'.$ean.'", "'.$referencia_proveedor.'", "'.$nombre_globomatik.'", "Creado/Insertado desde Importador", "'.$descripcion.'", 1, "'.$referencia_producto.'", '.$product->id.', NOW())';
 
                         Db::getInstance()->execute($sql_insert_datos_catalogo_globomatik);
                     }          
@@ -1003,8 +988,6 @@ class AdminImportaProveedorController extends ModuleAdminController {
         //asignamos a $referencia el valor introducido por el usuario al crear el producto        
         $referencia = Tools::getValue('referencia');
         $nombre_producto = Tools::getValue('nombre_producto');
-        //06/09/2023 recibimos la descripción del textarea
-        $descripcion_producto = Tools::getValue('descripcion_producto');
         //asignamos a combianciones el contenido en el objeto enviado por ajax de combinaciones, que es un array con tantos arrays como combinaciones, cada una con el id_import_catalogos, la referecnia de atributo, y el id_attribute
         $combinaciones = Tools::getValue('combinaciones');        
         
@@ -1036,7 +1019,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
             $combinaciones_peso = [];
             $combinaciones_pvp = [];
             $combinaciones_nombre_proveedor = '';            
-            // $combinaciones_descripcion = '';            
+            $combinaciones_descripcion = '';            
             $combinaciones_url_imagen_cover = '';
                         
             //si hay imágenes, deberían tener las mismas ya que van por producto y no combinación, de modo que cogeremos una de cada, como el nombre de proveedor. Las vamos metiendo al array y nos quedamos con el último array, por eso lo creamos dentro del foreach, sino se repetirían las fotos tantas veces como combinaciones
@@ -1055,7 +1038,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
                 $combinaciones_pvp[] = (float)$atributo['pvp'];
                 $combinaciones_peso[] = (float)$atributo['peso'];
                 $combinaciones_nombre_proveedor = $atributo['nombre_proveedor'];                
-                // $combinaciones_descripcion = $atributo['descripcion'];                
+                $combinaciones_descripcion = $atributo['descripcion'];                
                 $combinaciones_url_imagen_cover = trim($atributo['url_imagen']);
                 $combinaciones_otras_imagenes[] = trim($atributo['url_imagen_2']);
                 $combinaciones_otras_imagenes[] = trim($atributo['url_imagen_3']);
@@ -1115,9 +1098,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
             }   
 
             //desde 10/06/2020 la descripción la generamos al cargar el excel
-            //06/09/2023 ahora la traemos del cuadro de dialogo al crear el producto, uniendo la descfipcion a alguna frase para la IA del redactor
-            // $descripcion = $combinaciones_descripcion;
-            $descripcion = $descripcion_producto;
+            $descripcion = $combinaciones_descripcion;
 
             //optimización motores de búsqueda
             $meta_titulo = 'Producto por 34,90€ – LaFrikileria.com';
@@ -1203,8 +1184,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
                         $meta_titulo = $descripciones['meta_title'];
     
                         //montamos la descripción uniendo a la que tenga el producto en el importador el nombre y descripción del porducto copiado
-                        //06/09/2023 ya no cogemos la descripcion del producto modelo
-                        // $descripcion = $descripcion.'<br><br>'.$nombre_copia.'<br>'.$descripcion_copia;
+                        $descripcion = $descripcion.'<br><br>'.$nombre_copia.'<br>'.$descripcion_copia;
                     }                   
 
                     //tipo de producto 
@@ -1226,13 +1206,12 @@ class AdminImportaProveedorController extends ModuleAdminController {
             $product->link_rewrite = $this->generaIdiomas($linkrewrite);
             $product->meta_title = $this->generaIdiomas($meta_titulo);
             $product->meta_description = $this->generaIdiomas($meta_descripcion);                     
-            $product->available_now = Tools::mensajeAvailable($id_supplier)[0];
-            $product->available_later = Tools::mensajeAvailable($id_supplier)[1];             
+            $product->available_now = $this->mensajeAvailable($id_supplier)[0];
+            $product->available_later = $this->mensajeAvailable($id_supplier)[1];              
                        
             //para el importador solo queremos poner el español, ya que tendrán que limpiar la descripción, y desde 03/11/2021 lo metemos en la descripción corta para que no se dejen datos abajo. 
             // $product->description = $this->generaIdiomas($descripcion);  
-            // $product->description_short = array( 1 => $descripcion);
-            $product->description_short = array( 1 => $descripcion_producto); 
+            $product->description_short = array( 1 => $descripcion); 
             
             $product->price = $pvp;
             $product->wholesale_price = $precio_proveedor;
@@ -1914,7 +1893,60 @@ class AdminImportaProveedorController extends ModuleAdminController {
             )));
         }
             
-    }   
+    }
+
+    //función para obtener el mensaje de disponibilidad available_later según el proveedor. Tiene en cuenta id_lang para España, Portugal y el resto, que sería todos inglés
+    //devuelve un array, en su primera posición está el array para available_now y en la segunda el array para available_later
+    public function mensajeAvailable($id_supplier) {
+        //buscamos los mensajes en lafrips_mensaje_disponibilidad para ese id_supplier. Si no encuentra el supplier obtiene el mensaje por defecto, por cada id_lang.
+        //comprobamos que id_supplier está en la tabla, si no sacamos los valores default
+        if (Db::getInstance()->getValue("SELECT id_mensaje_disponibilidad FROM lafrips_mensaje_disponibilidad WHERE is_default = 0 AND id_supplier = $id_supplier")) {
+            $sql_mensajes = "SELECT id_lang, available_now, available_later 
+            FROM lafrips_mensaje_disponibilidad
+            WHERE id_supplier = $id_supplier";
+        } else {
+            $sql_mensajes = "SELECT id_lang, available_now, available_later 
+            FROM lafrips_mensaje_disponibilidad
+            WHERE is_default = 1";
+        }
+
+        if ($mensajes = Db::getInstance()->ExecuteS($sql_mensajes)) {
+            foreach ($mensajes AS $mensaje) {
+                if ($mensaje['id_lang'] == 1) {
+                    $available_now_es = $mensaje['available_now'];
+                    $available_later_es = $mensaje['available_later'];
+                } elseif ($mensaje['id_lang'] == 18) {
+                    $available_now_pt = $mensaje['available_now'];
+                    $available_later_pt = $mensaje['available_later'];
+                } else {
+                    $available_now_en = $mensaje['available_now'];
+                    $available_later_en = $mensaje['available_later'];
+                }
+            }
+            //generamos el array de idiomas para available now y later
+            $idiomas = Language::getLanguages();
+        
+            $available_later_todos = array();
+            foreach ($idiomas as $idioma) {
+                if ($idioma['iso_code'] == 'es') {
+                    $available_now_todos[$idioma['id_lang']] = $available_now_es;  
+                    $available_later_todos[$idioma['id_lang']] = $available_later_es;     
+                } elseif ($idioma['iso_code'] == 'pt') {
+                    $available_now_todos[$idioma['id_lang']] = $available_now_pt;
+                    $available_later_todos[$idioma['id_lang']] = $available_later_pt;     
+                } else {
+                    $available_now_todos[$idioma['id_lang']] = $available_now_en;
+                    $available_later_todos[$idioma['id_lang']] = $available_later_en;   
+                }                
+            }
+
+            return array($available_now_todos, $available_later_todos);
+
+        } else {
+            return false;
+        }
+        
+    }
 
 
 }

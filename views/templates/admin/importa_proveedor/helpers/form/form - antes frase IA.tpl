@@ -38,26 +38,31 @@
             </thead>
             <tbody>
                 <!-- div con display none oculto desde back.css que da forma a la ventana de diálogo para introducir la referencia para un nuevo producto si se utiliza el botón de Crear Producto -->
+                <!-- 28/10/2021 Voy a añadir un check que al pulsarse muestra un input donde introducir la referencia de un producto del que queremos copiar las categorías al crear el producto nuevo. Recogeremso categorías, nombre, descripción, seo y tipo de producto. En este cuadro de dialog solo mostraremos las categorías y el nombre del producto por si lo quieren usar para crear el nuevo. La descripción del producto y su nombre se "pegarán" al final de la descripción que viene en el importador para el producto. El tipo y el seo se pondrán al producto.  La descripción, tipo, seo etc no es necesaria aquí, la sacaremos en el controlador al crear el prodcuto. -->
                 <div id="dialog" title="Creando Producto">
                     <h2>Hola {Context::getContext()->employee->firstname}, introduce la referencia para el producto que vas a crear. <br><br>Recuerda que no debe estar repetida.</h2>
                     <br>
                     <h2><span id='error_formato_ref' style="display:none; color:red;">La referencia debe tener formato AAA12345678</span></h2>
                     <h2><span id='error_ref_repetida' style="display:none; color:red;">¡¡Esa referencia me suena!!</span></h2>
-                    <form action="#" method="post">
+                    <form action="#" method="post">                    
+                        <p><h2><span style="font-weight:bold;" title="Copiará las categorías, tipo de producto y SEO y añadirá su descripción a la que se importa por defecto">Importar características: </span><input type="checkbox" id="check_importar" name="check_importar" /><h2>                          
+                        <input type="text" name="producto_importar" id="producto_importar" style="display: none;" placeholder="Introduce la referencia completa del producto">   
+                        </p>
+                        <span id="categorias_clonar" style="display:none; font-size:small;"></span>
                         <p><h2><span style="font-weight:bold;">Referencia:</span><h2>
                             <input type="text" id="referencia_nuevo" />
                         </p>  
                         <p><h2><span style="font-weight:bold;">Nombre:</span><h2>
                             <input type="text" id="dialog_nombre_producto" />
                         </p>                        
-                        <input type="submit" id="dialog_submit_referencia" value="Crear">
+                        <input type="submit" id="dialog_submit_referencia" value="Crear">                        
                     </form>
                 </div>                
 
                  <!-- 14/07/2020 otro div con display none oculto desde back.css que da forma a la ventana de diálogo donde crearemos un select con los grupos de atributos para elegir al crear productos con atributos, y que en función del grupo escogido y el número de atributos a crear para el producto, generaremos dinámicamente tantos inputs para referencia y selects para atributos como atributos a crear-->
                 <div id="dialog_atributos" title="Creando Producto con Atributos">
                     <h2>Hola {Context::getContext()->employee->firstname}</h2>
-                    <h2 id="texto_3_atributos"><input type="checkbox" id="doble_combinacion" name="doble_combinacion" value="" /> Marca si el producto tiene combinaciones dobles</h2>
+                    {* <h2 id="texto_3_atributos"><input type="checkbox" id="doble_combinacion" name="doble_combinacion" value="" /> Marca si el producto tiene combinaciones dobles</h2> *}
                     <h2 id="texto_1_atributos">Selecciona el grupo de atributos al que corresponden las combinaciones del producto que estás creando.</h2>
                     <h2 id="texto_2_atributos">Ahora, selecciona para cada combinación el atributo que le corresponde e introduce su referencia de combinación.</h2>
                     <br>
@@ -109,7 +114,8 @@
             //a partie de SEPTIEMBRE 2020 la carga se hace mediante PHP y nomysql desde la carpeta sincronizada
             //si el producto es de redstring (id_proveedor = 24) la descripción será el enlace al producto en su web (desde 29/06/2020 hay un campo descripción que contiene una columna del catálogo concatenada con la url de producto, que está ahora en un campo independiente url_producto NO- HAY QUE LIMPIAR EL STRING, de momento no se concatena,solo ponemos url). Si es HEO añadimos la referencia de producto a su url,etc. Mostramos dicho enlace. Para Aby y Karactermanía, y Erik - 05/06/2020 - usamos la url de resultados de busqueda
             //02/03/2021 Añado Extended Play id 70
-            //03/08/2021 añado Globomatik, de momento no podemos formar url, pongo la misma para todos
+            //03/08/2021 añado Globomatik, de momento no podemos formar url, pongo la misma para todos (en principio este catálogo no se meterá al importador)
+            //16/11/2021 añado DMI
             if (product_infos.id_proveedor == 24){
                 var enlace_web = '<a href="'+product_infos.url_producto+'"  style="text-decoration:none; color:red;" target="_blank">Ver en Redstring</a>';
             }else if(product_infos.id_proveedor == 4){
@@ -142,6 +148,8 @@
                 var enlace_web = '<a href="'+product_infos.url_producto+'"  style="text-decoration:none; color:red;" target="_blank">Ver en Superplay</a>';
             }else if(product_infos.id_proveedor == 156){ //Globomatik. 03/08/2021
                 var enlace_web = '<a href="'+product_infos.url_producto+'"  style="text-decoration:none; color:red;" target="_blank">Web Globomatik</a>';
+            }else if(product_infos.id_proveedor == 160){ //DMI. 16/11/2021
+                var enlace_web = '<a href="'+product_infos.url_producto+'"  style="text-decoration:none; color:red;" target="_blank">Web DMI</a>';
             }
 
             //Si no tiene descripción ponemos un mensaje de No proporcionada por proveedor.
@@ -278,7 +286,7 @@
 
             //contar el número de productos (ids) en el array para mostrar en la lista, saldrá en pantalla la última cantidad, se vacia desde back.js
             if(product_ids.length > 1){
-                $('#num_prods').html('<span>'+ product_ids.length + ' productos</span><span style="font-size:small;"> (100 max)</span>');
+                $('#num_prods').html('<span>'+ product_ids.length + ' productos</span>');
             }else{
                 $('#num_prods').text(product_ids.length + ' producto');
             }

@@ -35,8 +35,6 @@
   border-radius: 5px;
   background-color: #f2f2f2;
   padding: 20px;
-  font-size: x-small;
-  font-weight: normal;
 }
 #dialog_atributos {
   display: none;
@@ -46,27 +44,13 @@
 }
 
 .ui-dialog input {
-  width: 80%;
+  width: 50%;
   padding: 12px 20px;
   margin: 8px 0;
   display: inline-block;
   border: 1px solid #ccc;
   border-radius: 4px;
   box-sizing: border-box;
-  font-size: x-small;
-  font-weight: normal;
-}
-
-.ui-dialog textarea {
-  width: 80%;
-  padding: 12px 20px;
-  margin: 8px 0;
-  display: inline-block;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
-  font-size: x-small;
-  font-weight: normal;
 }
 
 /* botón */
@@ -104,9 +88,9 @@
 	font-weight: 700;
 }
 
-/* input#doble_combinacion {
+input#doble_combinacion {
   width: 5% !important;
-} */
+}
 
 /* Selects dentro de dialog */
 .ui-dialog .select-css {
@@ -150,6 +134,7 @@
 .ui-dialog .select-css option {
 	font-weight:normal;
 }
+
 
 /*scroll para las descripciones muy largas */
 .scrolltabla {

@@ -40,8 +40,7 @@
                 <!-- div con display none oculto desde back.css que da forma a la ventana de diálogo para introducir la referencia para un nuevo producto si se utiliza el botón de Crear Producto -->
                 <!-- 28/10/2021 Voy a añadir un check que al pulsarse muestra un input donde introducir la referencia de un producto del que queremos copiar las categorías al crear el producto nuevo. Recogeremso categorías, nombre, descripción, seo y tipo de producto. En este cuadro de dialog solo mostraremos las categorías y el nombre del producto por si lo quieren usar para crear el nuevo. La descripción del producto y su nombre se "pegarán" al final de la descripción que viene en el importador para el producto. El tipo y el seo se pondrán al producto.  La descripción, tipo, seo etc no es necesaria aquí, la sacaremos en el controlador al crear el prodcuto. -->
                 <div id="dialog" title="Creando Producto">
-                    <h2>Hola {Context::getContext()->employee->firstname}, introduce la referencia para el producto que vas a crear. <br><br>Recuerda que no debe estar repetida.</h2>
-                    <br>
+                    <h2>Hola {Context::getContext()->employee->firstname}, introduce la referencia para el producto que vas a crear.</h2>                    
                     <h2><span id='error_formato_ref' style="display:none; color:red;">La referencia debe tener formato AAA12345678</span></h2>
                     <h2><span id='error_ref_repetida' style="display:none; color:red;">¡¡Esa referencia me suena!!</span></h2>
                     <form action="#" method="post">                    
@@ -52,9 +51,15 @@
                         <p><h2><span style="font-weight:bold;">Referencia:</span><h2>
                             <input type="text" id="referencia_nuevo" />
                         </p>  
-                        <p><h2><span style="font-weight:bold;">Nombre:</span><h2>
-                            <input type="text" id="dialog_nombre_producto" />
-                        </p>                        
+                        <p><h2><span style="font-weight:bold;">Nombre:</span><h2>                            
+                            <input type="text" id="dialog_nombre_producto" onkeyup="cuentaCaracteres(this);">
+                            <span id="caracteres_nombre_api"></span><span> (max 50)</span>
+                        </p>   
+                        {* 06/09/2023 Añadimos descripción editable *}
+                        <p><h2><span style="font-weight:bold;">Descripción:</span><h2>                            
+                            <textarea id="dialog_descripcion_producto" rows="6" cols="60" onkeyup="cuentaCaracteres(this);"></textarea>
+                            <span id="caracteres_descripcion_api"></span><span> (max 500)</span>
+                        </p>                     
                         <input type="submit" id="dialog_submit_referencia" value="Crear">                        
                     </form>
                 </div>                
@@ -263,8 +268,8 @@
                 '<td><div class="fixed-width-xs">'+product_infos.nombre_proveedor+'</div></td>'+
                 '<td class="text-center">'+product_infos.referencia_proveedor+'</td>'+
                 '<td class="text-center"><div class="fixed-width-md">'+product_infos.ean+'</div></td>'+
-                '<td id="nombre_linea_'+product_infos.id_import_catalogos+'">'+product_infos.nombre+'</td>'+ // Ponemos id nombre_linea+id para acceder al nombre en back.js  
-                '<td><div class="scrolltabla">'+descripcion+'</div></td>'+
+                '<td id="nombre_linea_'+product_infos.id_import_catalogos+'">'+product_infos.nombre+'</td>'+ // Ponemos id nombre_linea+id para acceder al nombre en back.js, 06/09/2023 lo mismo para descripción                  
+                '<td id="descripcion_linea_'+product_infos.id_import_catalogos+'"><div class="scrolltabla">'+descripcion+'</div></td>'+
                 '<td class="text-center">'+enlace_web+'</td>'+
                 '<td class="text-center">'+precio+'</td>'+
                 '<td class="text-center">'+img+'</td>'+

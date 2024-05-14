@@ -138,6 +138,26 @@ class AdminImportaProveedorController extends ModuleAdminController {
                         )
                     ),
                 ), 
+                //07/02/2023 Añadir un switch para quitar productos que en principio no tienen stock en el proveedor, mostrar solo disponibles, aunque no sea muy fiable
+                array(
+                    'type' => 'switch',                        
+                    'label' => $this->l('Ocultar productos no disponibles'),
+                    'name' => 'ocultar_no_disponibles',
+                    // 'is_bool' => true,
+                    'desc' => $this->l('Mostrar solo productos de proveedores que tienen disponibilidad en el catálogo. DATO NO FIABLE.'),
+                    'values' => array(
+                        array(
+                            'id' => 'active_on',
+                            'value' => 1,
+                            'label' => $this->l('Enabled')
+                        ),
+                        array(
+                            'id' => 'active_off',
+                            'value' => 0,
+                            'label' => $this->l('Disabled')
+                        )
+                    ),
+                ), 
                 //limite de productos a mostrar. Tiene trampa, yo sacaré siempre hasta 1000, pero mostraré los que se seleccione. Esto es debido a que primero saco los productos y después, si hay que ocultar los que ya existen, los quito. De modo que si marcas mostrar 100 y los 100 primeros ya existen y está marcado ocultar existentes, no saldría ninguno, a pesar de que puede haber cientos, solo que no salen en la select inicial que tiene limit 100
                 array(
                     'type' => 'select',
@@ -176,7 +196,9 @@ class AdminImportaProveedorController extends ModuleAdminController {
         $pattern_nombre = trim(pSQL(Tools::getValue('nombre_producto', false)));
         //04/04/2022 mostrar o no los productos de los catálogos que ya existen en prestashop. true es ocultar, false es mostrarlos
         $ocultar_existentes = Tools::getValue('ocultar_existentes', false); 
-        $limite_productos = (int) Tools::getValue('limite_productos', false);       
+        $limite_productos = (int) Tools::getValue('limite_productos', false);   
+        //07/02/2023 mostrar o no los productos de los catálogos que tienen disponibilidad. true es ocultar sin disponibilidad, false es mostrarlos
+        $ocultar_no_disponibles = Tools::getValue('ocultar_no_disponibles', false);             
         
         if ((!$pattern_nombre || $pattern_nombre == '')&&(!$pattern_referencia || $pattern_referencia == '')&&(!$pattern_ean || $pattern_ean == '')){               
            // $errors[] = 'Introduce lo que estás buscando';
@@ -239,6 +261,13 @@ class AdminImportaProveedorController extends ModuleAdminController {
             $ean_select = '';
         }
 
+        //mostrar con disponibilidad o no 
+        if ($ocultar_no_disponibles) {
+            $disponibilidad = ' AND disponibilidad = 1 ';
+        } else {
+            $disponibilidad = '';
+        }
+
         /*if ($pattern_referencia && !$pattern_ean){
             $condicion = 'WHERE referencia_proveedor LIKE \'%'.$pattern_referencia.'%\' '.$suppliers_select;
         }elseif ($pattern_ean && !$pattern_referencia){
@@ -265,6 +294,8 @@ class AdminImportaProveedorController extends ModuleAdminController {
         }
 
         $condicion .= $proveedor_select;
+
+        $condicion .= $disponibilidad;
 
         //Añadimos que busque un máximo de 1000 productos si se ha marcado ocultar existentes, si no el limit será igual a $limite_productos. Después, en el foreach por cada línea, nos aseguramos de que muestre un máximo de $limite_productos. Esto es porque al poner el límite a la select, si seleccionamos ocultar existentes se puede dar incluso que con este limit todos existan y no se muestre ninguno porque los no existentes aparecen después
         if ($ocultar_existentes) {
@@ -464,6 +495,8 @@ class AdminImportaProveedorController extends ModuleAdminController {
         $referencia = Tools::getValue('referencia', 0);
         //recibimos el nombre asignado en el input
         $nombre_producto = trim(pSQL(Tools::getValue('nombre_producto')));
+        //06/09/2023 recibimos la descripción del textarea
+        $descripcion_producto = Tools::getValue('descripcion_producto');
         $id_producto = Tools::getValue('id', 0);
         if(!$id_producto)
             die(Tools::jsonEncode(array('error'=> true, 'message'=>'No se encuentra el producto.')));
@@ -490,7 +523,8 @@ class AdminImportaProveedorController extends ModuleAdminController {
             $id_proveedor = $datos_producto[0]['id_proveedor'];
             $peso = $datos_producto[0]['peso'];
             //desde 10/06/2020 la descripción la generamos al cargar el excel
-            $descripcion = $datos_producto[0]['descripcion'];
+            //06/09/2023 Ahora ponemos un textarea para modificarla al crearlo, con lo que el dato lo recibimos por formulario y está en $descripcion_producto
+            // $descripcion = $datos_producto[0]['descripcion'];
             
             //13/07/2020 añadimos código para que intente añadir como imagen de producto la que tengamos almacenada en url_imagen. 20/07/2020 hemos añadido 5 campos más de imagen, si hay algo lo añadimos también al producto
             if ($datos_producto[0]['url_imagen']) {
@@ -572,11 +606,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
             //optimización motores de búsqueda
             $meta_titulo = 'Producto por 34,90€ – LaFrikileria.com';
             $meta_descripcion = 'Compra todos los artículos de - en nuestra tienda de regalos originales de Cine, Series de Tv, Videojuegos, Superhéroes, Manga y Anime';  
-            $disponible_now = 'Producto en Stock. Disponible para envíos urgentes 24h.'; 
-            $available_now = 'Product in Stock. Available for emergency shipments 24 hours a day.';  
-            //$available_later = 'Atención: el plazo de envío de este artículo es de una semana a diez días.';
-            $default_lang = Configuration::get('PS_LANG_DEFAULT');
-            
+                        
             //antes de crear el producto comproibamos si se utiliza uno existenete para copiar sus categorías y descripción, seo tio etc
             //si no se copian categorías de otro producto se le pone solo Importados, si no se ponen las que tenía el producto escogido, asegurándose de que tenga una por defecto, si no Importados 2430. la categoría de precio la calcularemos al crear el producto según su precio
             $id_feature_value = 155; //ponemos por defecto
@@ -657,7 +687,8 @@ class AdminImportaProveedorController extends ModuleAdminController {
                         $meta_titulo = $descripciones['meta_title'];
     
                         //montamos la descripción uniendo a la que tenga el producto en el importador el nombre y descripción del porducto copiado
-                        $descripcion = $descripcion.'<br><br>'.$nombre_copia.'<br>'.$descripcion_copia;
+                        //06/09/2023 ya no cogemos la descripcion del producto modelo
+                        // $descripcion = $descripcion.'<br><br>'.$nombre_copia.'<br>'.$descripcion_copia;
                     }                   
 
                     //tipo de producto 
@@ -679,19 +710,13 @@ class AdminImportaProveedorController extends ModuleAdminController {
             $product->link_rewrite = $this->generaIdiomas($linkrewrite);
             $product->meta_title = $this->generaIdiomas($meta_titulo);
             $product->meta_description = $this->generaIdiomas($meta_descripcion);
-            $product->available_now = $this->generaIdiomas($disponible_now, $available_now);
-
-            //si el producto es Cerdá Adult ponemos mensaje de available later
-            if ($id_proveedor == 65) {
-                $disponible_later = 'Atención: el plazo de envío de este artículo es de tres a seis días.';
-                $available_later = 'Attention: the shipping time for this item is three to six days.';
-
-                $product->available_later = $this->generaIdiomas($disponible_later, $available_later);
-            }                       
+            $product->available_now = $this->mensajeAvailable($id_proveedor)[0];
+            $product->available_later = $this->mensajeAvailable($id_proveedor)[1];                              
             
             //para el importador solo queremos poner el español, ya que tendrán que limpiar la descripción, y desde 03/11/2021 lo metemos en la descripción corta para que no se dejen datos abajo. 
             // $product->description = $this->generaIdiomas($descripcion);  
-            $product->description_short = array( 1 => $descripcion); 
+            // $product->description_short = array( 1 => $descripcion); 
+            $product->description_short = array( 1 => $descripcion_producto); 
 
             $product->price = $pvp;
             $product->wholesale_price = $precio_proveedor;
@@ -846,7 +871,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
 
                         $sql_insert_datos_catalogo_globomatik = 'INSERT INTO frik_catalogo_globomatik
                         (ean, referencia, nombre_es, nombre_en, descripcion_es, existe_prestashop, referencia_prestashop, id_product_prestashop, date_add) VALUES 
-                        ("'.$ean.'", "'.$referencia_proveedor.'", "'.$nombre_globomatik.'", "Creado/Insertado desde Importador", "'.$descripcion.'", 1, "'.$referencia_producto.'", '.$product->id.', NOW())';
+                        ("'.$ean.'", "'.$referencia_proveedor.'", "'.$nombre_globomatik.'", "Creado/Insertado desde Importador", "'.$descripcion_producto.'", 1, "'.$referencia_producto.'", '.$product->id.', NOW())';
 
                         Db::getInstance()->execute($sql_insert_datos_catalogo_globomatik);
                     }          
@@ -968,6 +993,8 @@ class AdminImportaProveedorController extends ModuleAdminController {
         //asignamos a $referencia el valor introducido por el usuario al crear el producto        
         $referencia = Tools::getValue('referencia');
         $nombre_producto = Tools::getValue('nombre_producto');
+        //06/09/2023 recibimos la descripción del textarea
+        $descripcion_producto = Tools::getValue('descripcion_producto');
         //asignamos a combianciones el contenido en el objeto enviado por ajax de combinaciones, que es un array con tantos arrays como combinaciones, cada una con el id_import_catalogos, la referecnia de atributo, y el id_attribute
         $combinaciones = Tools::getValue('combinaciones');        
         
@@ -999,7 +1026,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
             $combinaciones_peso = [];
             $combinaciones_pvp = [];
             $combinaciones_nombre_proveedor = '';            
-            $combinaciones_descripcion = '';            
+            // $combinaciones_descripcion = '';            
             $combinaciones_url_imagen_cover = '';
                         
             //si hay imágenes, deberían tener las mismas ya que van por producto y no combinación, de modo que cogeremos una de cada, como el nombre de proveedor. Las vamos metiendo al array y nos quedamos con el último array, por eso lo creamos dentro del foreach, sino se repetirían las fotos tantas veces como combinaciones
@@ -1018,7 +1045,7 @@ class AdminImportaProveedorController extends ModuleAdminController {
                 $combinaciones_pvp[] = (float)$atributo['pvp'];
                 $combinaciones_peso[] = (float)$atributo['peso'];
                 $combinaciones_nombre_proveedor = $atributo['nombre_proveedor'];                
-                $combinaciones_descripcion = $atributo['descripcion'];                
+                // $combinaciones_descripcion = $atributo['descripcion'];                
                 $combinaciones_url_imagen_cover = trim($atributo['url_imagen']);
                 $combinaciones_otras_imagenes[] = trim($atributo['url_imagen_2']);
                 $combinaciones_otras_imagenes[] = trim($atributo['url_imagen_3']);
@@ -1078,16 +1105,14 @@ class AdminImportaProveedorController extends ModuleAdminController {
             }   
 
             //desde 10/06/2020 la descripción la generamos al cargar el excel
-            $descripcion = $combinaciones_descripcion;
+            //06/09/2023 ahora la traemos del cuadro de dialogo al crear el producto, uniendo la descfipcion a alguna frase para la IA del redactor
+            // $descripcion = $combinaciones_descripcion;
+            $descripcion = $descripcion_producto;
 
             //optimización motores de búsqueda
             $meta_titulo = 'Producto por 34,90€ – LaFrikileria.com';
             $meta_descripcion = 'Compra todos los artículos de - en nuestra tienda de regalos originales de Cine, Series de Tv, Videojuegos, Superhéroes, Manga y Anime';  
-            $disponible_now = 'Producto en Stock. Disponible para envíos urgentes 24h.'; 
-            $available_now = 'Product in Stock. Available for emergency shipments 24 hours a day.';  
-            //$available_later = 'Atención: el plazo de envío de este artículo es de una semana a diez días.';
-            $default_lang = Configuration::get('PS_LANG_DEFAULT');
-
+                       
             //antes de crear el producto comproibamos si se utiliza uno existente para copiar sus categorías y descripción, seo tio etc
             //si no se copian categorías de otro producto se le pone solo Importados, si no se ponen las que tenía el producto escogido, asegurándose de que tenga una por defecto, si no Importados 2430. la categoría de precio la calcularemos al crear el producto según su precio
             $id_feature_value = 155; //ponemos por defecto
@@ -1168,7 +1193,8 @@ class AdminImportaProveedorController extends ModuleAdminController {
                         $meta_titulo = $descripciones['meta_title'];
     
                         //montamos la descripción uniendo a la que tenga el producto en el importador el nombre y descripción del porducto copiado
-                        $descripcion = $descripcion.'<br><br>'.$nombre_copia.'<br>'.$descripcion_copia;
+                        //06/09/2023 ya no cogemos la descripcion del producto modelo
+                        // $descripcion = $descripcion.'<br><br>'.$nombre_copia.'<br>'.$descripcion_copia;
                     }                   
 
                     //tipo de producto 
@@ -1189,20 +1215,14 @@ class AdminImportaProveedorController extends ModuleAdminController {
             $product->name = $this->generaIdiomas($nombre_producto);
             $product->link_rewrite = $this->generaIdiomas($linkrewrite);
             $product->meta_title = $this->generaIdiomas($meta_titulo);
-            $product->meta_description = $this->generaIdiomas($meta_descripcion);
-            $product->available_now = $this->generaIdiomas($disponible_now, $available_now);            
-
-            //si el producto es Cerdá Adult ponemos mensaje de available later
-            if ($id_supplier == 65) {
-                $disponible_later = 'Atención: el plazo de envío de este artículo es de tres a seis días.';
-                $available_later = 'Attention: the shipping time for this item is three to six days.';
-                
-                $product->available_later = $this->generaIdiomas($disponible_later, $available_later);
-            }
+            $product->meta_description = $this->generaIdiomas($meta_descripcion);                     
+            $product->available_now = $this->mensajeAvailable($id_supplier)[0];
+            $product->available_later = $this->mensajeAvailable($id_supplier)[1];              
                        
             //para el importador solo queremos poner el español, ya que tendrán que limpiar la descripción, y desde 03/11/2021 lo metemos en la descripción corta para que no se dejen datos abajo. 
             // $product->description = $this->generaIdiomas($descripcion);  
-            $product->description_short = array( 1 => $descripcion); 
+            // $product->description_short = array( 1 => $descripcion);
+            $product->description_short = array( 1 => $descripcion_producto); 
             
             $product->price = $pvp;
             $product->wholesale_price = $precio_proveedor;
@@ -1626,8 +1646,12 @@ class AdminImportaProveedorController extends ModuleAdminController {
             $tgt_width = $tgt_height = 0;
             $src_width = $src_height = 0;
             $error = 0;
-            ImageManager::resize($tmpfile, $path.'.jpg', null, null, 'jpg', false, $error, $tgt_width, $tgt_height, 5,
-                                 $src_width, $src_height);
+
+            //MOD: 25/05/2023 Si enviamos los parámetros como los usa esta función sacada de AdminImportController parece que mete un marco blanco a las fotos, pero mirando en AdminProductsController en su función copyImage() se ve que solo envía hasta $file_type y no mete ese marco, parece que funciona
+
+            // ImageManager::resize($tmpfile, $path.'.jpg', null, null, 'jpg', false, $error, $tgt_width, $tgt_height, 5,
+            //                     $src_width, $src_height);
+            ImageManager::resize($tmpfile, $path.'.jpg', null, null, 'jpg');
             $images_types = ImageType::getImagesTypes($entity, true);
 
             if ($regenerate) {
@@ -1638,9 +1662,13 @@ class AdminImportaProveedorController extends ModuleAdminController {
                     //en AdminImportcontroller aquí utiliza self::get_best_path pero como no estamos en ese controlador, he traido la función get_best_path() justo debajo de esta
                     $tmpfile = $this->get_best_path($image_type['width'], $image_type['height'], $path_infos);
 
+                    //MOD: 25/05/2023 Si enviamos los parámetros como los usa esta función sacada de AdminImportController parece que mete un marco blanco a las fotos, pero mirando en AdminProductsController en su función copyImage() se ve que solo envía hasta $file_type y no mete ese marco, parece que funciona
+
+                    // if (ImageManager::resize($tmpfile, $path.'-'.stripslashes($image_type['name']).'.jpg', $image_type['width'],
+                    //                     $image_type['height'], 'jpg', false, $error, $tgt_width, $tgt_height, 5,
+                    //                     $src_width, $src_height)) {
                     if (ImageManager::resize($tmpfile, $path.'-'.stripslashes($image_type['name']).'.jpg', $image_type['width'],
-                                         $image_type['height'], 'jpg', false, $error, $tgt_width, $tgt_height, 5,
-                                         $src_width, $src_height)) {
+                        $image_type['height'], 'jpg')) {
                         // the last image should not be added in the candidate list if it's bigger than the original image
                         if ($tgt_width <= $src_width && $tgt_height <= $src_height) {
                             $path_infos[] = array($tgt_width, $tgt_height, $path.'-'.stripslashes($image_type['name']).'.jpg');
@@ -1876,6 +1904,59 @@ class AdminImportaProveedorController extends ModuleAdminController {
             )));
         }
             
+    }
+
+    //función para obtener el mensaje de disponibilidad available_later según el proveedor. Tiene en cuenta id_lang para España, Portugal y el resto, que sería todos inglés
+    //devuelve un array, en su primera posición está el array para available_now y en la segunda el array para available_later
+    public function mensajeAvailable($id_supplier) {
+        //buscamos los mensajes en lafrips_mensaje_disponibilidad para ese id_supplier. Si no encuentra el supplier obtiene el mensaje por defecto, por cada id_lang.
+        //comprobamos que id_supplier está en la tabla, si no sacamos los valores default
+        if (Db::getInstance()->getValue("SELECT id_mensaje_disponibilidad FROM lafrips_mensaje_disponibilidad WHERE is_default = 0 AND id_supplier = $id_supplier")) {
+            $sql_mensajes = "SELECT id_lang, available_now, available_later 
+            FROM lafrips_mensaje_disponibilidad
+            WHERE id_supplier = $id_supplier";
+        } else {
+            $sql_mensajes = "SELECT id_lang, available_now, available_later 
+            FROM lafrips_mensaje_disponibilidad
+            WHERE is_default = 1";
+        }
+
+        if ($mensajes = Db::getInstance()->ExecuteS($sql_mensajes)) {
+            foreach ($mensajes AS $mensaje) {
+                if ($mensaje['id_lang'] == 1) {
+                    $available_now_es = $mensaje['available_now'];
+                    $available_later_es = $mensaje['available_later'];
+                } elseif ($mensaje['id_lang'] == 18) {
+                    $available_now_pt = $mensaje['available_now'];
+                    $available_later_pt = $mensaje['available_later'];
+                } else {
+                    $available_now_en = $mensaje['available_now'];
+                    $available_later_en = $mensaje['available_later'];
+                }
+            }
+            //generamos el array de idiomas para available now y later
+            $idiomas = Language::getLanguages();
+        
+            $available_later_todos = array();
+            foreach ($idiomas as $idioma) {
+                if ($idioma['iso_code'] == 'es') {
+                    $available_now_todos[$idioma['id_lang']] = $available_now_es;  
+                    $available_later_todos[$idioma['id_lang']] = $available_later_es;     
+                } elseif ($idioma['iso_code'] == 'pt') {
+                    $available_now_todos[$idioma['id_lang']] = $available_now_pt;
+                    $available_later_todos[$idioma['id_lang']] = $available_later_pt;     
+                } else {
+                    $available_now_todos[$idioma['id_lang']] = $available_now_en;
+                    $available_later_todos[$idioma['id_lang']] = $available_later_en;   
+                }                
+            }
+
+            return array($available_now_todos, $available_later_todos);
+
+        } else {
+            return false;
+        }
+        
     }
 
 

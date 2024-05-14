@@ -8,6 +8,8 @@
 $(function(){
    $('#product_form').on('submit',function(event){
        event.preventDefault();
+       
+        //    console.log(document.querySelector('input[name="ocultar_existentes"]:checked').value);
        //dataObj se crea ={} porque es un objeto. Con =[] sería array
        var dataObj = {};
        //declaramos aquí también el array de ids de producto (input hidden en form.tpl) 
@@ -15,8 +17,19 @@ $(function(){
        
        //guardamos en dataObj el contenido de select e inputs del formulario
        $(this).find('input, select').each(function(index, elt){
-           dataObj[elt.name] = elt.value;
+           //04/04/2022 de esta forma no parece recoger el valor seleccionado en el switch (radio button) para mostrar o no productos que ya existen, no tengo tiempo de averiguar lo que ocurre así que ñapa, cuando .find() pasa por ele elmento de nombre ocultar_existentes metemos a dataObj el valor que tiene seleccionado
+           //07/02/2023 Misma ñapa para ocultar productos sin disponibilidad ocultar_no_disponibles
+           if (elt.name == "ocultar_existentes") {
+                dataObj[elt.name] = document.querySelector('input[name="ocultar_existentes"]:checked').value;
+           } else if (elt.name == "ocultar_no_disponibles") {
+                dataObj[elt.name] = document.querySelector('input[name="ocultar_no_disponibles"]:checked').value;
+            } else {
+                    dataObj[elt.name] = elt.value;
+            }   
+
        });
+
+    //    console.dir(dataObj);
 
        $.ajax({
         url: 'index.php?controller=AdminImportaProveedor' + '&token=' + token + "&action=get_products" + '&ajax=1' + '&rand=' + new Date().getTime(),
@@ -134,15 +147,10 @@ $(function(){
             dataObj['nombre_producto'] = nombre_producto;  
             //metemos si el check de "copiar características" está marcado, si no no va por post
             // console.log('check importar??='+ $("#check_importar:checked" ).val());
-            dataObj['check_importar'] = $("#check_importar:checked" ).val();
+            dataObj['check_importar'] = $("#check_importar:checked" ).val();  
+            dataObj['id_producto_copiar'] = $("#id_producto_copiar" ).val();   //metemos el id del producto que se introdujo en el input de referencia para copiar datos
             dataObj['id_category_default'] = $("#id_category_default" ).val();
             dataObj['ids_categorias'] = $("#ids_categorias" ).val();
-            dataObj['nombre_producto_copia'] = $("#nombre_producto_copia" ).val();
-            dataObj['descripcion_copia'] = $("#descripcion_copia" ).val();
-            dataObj['meta_descripcion_copia'] = $("#meta_descripcion_copia" ).val();
-            dataObj['meta_title_copia'] = $("#meta_title_copia" ).val();
-            dataObj['id_feature_value_copia'] = $("#id_feature_value_copia" ).val();
-            console.log(dataObj);
             
             //comprobamos que la referencia introducida tenga formato AAA11111111
             if (/^[A-Za-z]{3}[0-9]{8}$/.test(referencia_introducida)){
@@ -645,8 +653,9 @@ $(function(){
         }
 
         //cada input de referencia de combinación tiene clase "referencia_combinacion", los chequeamos uno a uno. La referencia debe tener más de 12 caracteres, ya que será como mínimo la referencia de producto AAA12345678 y el guión -, es decir, debe comenzar por AAA12345678- , y no tener más de 32, pudiendo tener _ y -
+        //también la / poniendo primero \ para escaparla
         $('.referencia_combinacion').each(function() {
-            if ( !/^[A-Za-z]{3}[0-9]{8}[-][A-Za-z0-9_-]{1,20}$/.test(this.value)){
+            if ( !/^[A-Za-z]{3}[0-9]{8}[-][A-Za-z0-9_\/-]{1,20}$/.test(this.value)){
                 error = 1;
                 error_ref_comb = 1;                    
             }
@@ -662,8 +671,14 @@ $(function(){
             $('#dialog_submit_combinaciones').attr("disabled", "disabled");         
             var dataObj = {};
             dataObj['referencia'] = $('#referencia_nuevo_producto').val(); 
-            dataObj['nombre_producto'] = $('#nombre_nuevo_producto').val();            
-            
+            dataObj['nombre_producto'] = $('#nombre_nuevo_producto').val();     
+            //metemos si el check de "copiar características" está marcado, si no no va por post. Todo esto quedó oculto en el primer dialog 
+            // console.log('check importar??='+ $("#check_importar:checked" ).val());
+            dataObj['check_importar'] = $("#check_importar:checked" ).val();
+            dataObj['id_producto_copiar'] = $("#id_producto_copiar" ).val();   //metemos el id del producto que se introdujo en el input de referencia para copiar datos
+            dataObj['id_category_default'] = $("#id_category_default" ).val();
+            dataObj['ids_categorias'] = $("#ids_categorias" ).val();
+                             
             //por cada div creado con su select, etc sacamos los valores             
             var combinaciones = new Array();          
             
@@ -682,7 +697,7 @@ $(function(){
             });
             // metemos el array combinaciones dentro del objeto dataObj  
             dataObj['combinaciones'] = combinaciones;             
-            ////console.log(dataObj);
+            console.log(dataObj);
            
             //llamamos por ajax a CrearProductoAtributos
             $.ajax({
@@ -695,13 +710,19 @@ $(function(){
             {
                 if (typeof data.error === 'undefined')
                 {
-                    //Si se crea el producto correctamente limpiamos y cerramos el cuadro dialog
+                    //Si se crea el producto correctamente limpiamos y cerramos el cuadro dialog de atributos
                     $(".combinaciones").remove();
                     $("#span_grupo_atributos").empty();
                     $("#texto_2_atributos").hide();                                            
                     $("#id_attribute_group").remove();
                     $("#span_combinaciones").empty();
                     $("#dialog_atributos").dialog("close"); 
+
+                    //Si se crea el producto correctamente limpiamos también el contenido de las categorías etc del dialog inicial donde se almacena la info del producto copiado                    
+                    $("#producto_importar").val('');
+                    $('#producto_importar').hide();
+                    $("#check_importar").removeAttr('checked'); 
+                    $('#categorias_clonar').empty();                    
 
                     //también quitamos el botón de crear producto de cada línea de atributos, y el checkbox de atributo
                     var id_boton = '';                                        
@@ -786,9 +807,9 @@ $(function(){
     //     } 
     // });
 
-    //29/10/2021 Añadimos funcionalidad para "copiar" las categorías, descripción, seo y tipo de producto de un producto escogido introduciendo una referencia en un input que mostramos en el dialog si se marca el check "Importar características". La descripción, tipo, seo etc no es necesaria aquí, pero los metemos en input hidden para el controlador al crear el prodcuto.
+    //29/10/2021 Añadimos funcionalidad para "copiar" las categorías, descripción, seo y tipo de producto de un producto escogido introduciendo una referencia en un input que mostramos en el dialog si se marca el check "Importar características". La descripción, tipo, seo etc no es necesaria aquí, solo mostraremos las categorías y el nombre, y sacaremos los datos completos desde el controlador. Almacenamos en un hidden el id de producto a copiar
     $('#check_importar').on('change', function(e){
-        console.log('check importar caracteristicas tocado');
+        // console.log('check importar caracteristicas tocado');
         //si está checado mostramos el input para referencia, y si existe, el div con las categorías del producto
         if($(this).is(':checked')) {    
             console.log('check importar caracteristicas marcado');
@@ -831,12 +852,12 @@ $(function(){
                 {
                     if (typeof data.error === 'undefined')
                     {
-                        console.log('Referencia NO duplicada');
-                        console.log(data.category_default);
-                        console.log(data.ids_categorias);
-                        console.log(data.categorias);
-                        console.log(data.descripciones);
-                        console.log(data.feature_value);
+                        // console.log('Referencia NO duplicada');
+                        // console.log(data.category_default);
+                        // console.log(data.ids_categorias);
+                        // console.log(data.categorias);
+                        // console.log(data.descripciones);
+                        // console.log(data.feature_value);
                                                 
                         showSuccessMessage(data.message);
                         $('#producto_importar').css('background-color', '#8ece94');
@@ -845,7 +866,7 @@ $(function(){
 
                         //Creamos una presentación de las categorías del producto, con la principal y el resto. Estas categorías se añadirán al producto a crear
                         //lo ponemos todo debajo del input de referencia del producto a copiar
-                        //La descripción, tipo, seo etc no es necesaria aquí, pero los metemos en input hidden para el controlador al crear el prodcuto.
+                        
                         //primero nos aseguramos de eliminar cualquier div clase categorias_clonar por si se hace varias veces para que no se repita
                         $('#categorias_clonar').empty();
                         //construimos lo que queremos mostrar
@@ -871,19 +892,15 @@ $(function(){
                                     </ul> 
                                 </div> 
                             </div>  
+                            <input type='hidden' id='id_producto_copiar' name='id_producto_copiar' value="${data.id_producto_copiar}"></input>
                             <input type='hidden' id='id_category_default' name='id_category_default' value="${data.category_default.id_category}"></input>
-                            <input type='hidden' id='ids_categorias' name='ids_categorias' value="${data.ids_categorias}"></input> 
-                            <input type='hidden' id='nombre_producto_copia' name='nombre_producto_copia' value="${data.descripciones.name}"></input>
-                            <input type='hidden' id='descripcion_copia' name='descripcion_copia' value="${data.descripciones.description_short}"></input>
-                            <input type='hidden' id='meta_descripcion_copia' name='meta_descripcion_copia' value="${data.descripciones.meta_description}"></input> 
-                            <input type='hidden' id='meta_title_copia' name='meta_title_copia' value="${data.descripciones.meta_title}"></input>
-                            <input type='hidden' id='id_feature_value_copia' name='id_feature_value_copia' value="${data.feature_value.id_feature_value}"></input>                                                
+                            <input type='hidden' id='ids_categorias' name='ids_categorias' value="${data.ids_categorias}"></input>                                                                            
                         </div>`;
 
                         var panel_categorias_principal = `
                         <div class="form-group categorias_clonar">
                             <p>
-                                ${data.descripciones.name}
+                                ${data.nombre_producto}
                             </p>
                             <label class="control-label col-lg-3">
                                 Categoría principal
