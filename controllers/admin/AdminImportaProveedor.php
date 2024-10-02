@@ -98,10 +98,10 @@ class AdminImportaProveedorController extends ModuleAdminController {
                 //input para introducir nombre a buscar en la tabla
                 array(
                     'type' => 'text',
-                    'label' => 'Nombre de producto',
+                    'label' => 'Nombre/Descripción de producto',
                     'name' => 'nombre_producto',
                     'required' => false, 
-                    'hint' => 'Introduce el nombre del producto a buscar',
+                    'hint' => 'Introduce un texto a buscar en el nombre o descripción del producto',
                     ),  
                 //input para introducir la referencia de proveedor a buscar en la tabla
                 array(
@@ -235,8 +235,10 @@ class AdminImportaProveedorController extends ModuleAdminController {
         }
 
         //Si escribe o no en casilla nombre
+        //02/10/2024 vamos a buscar el texto también en lo que haya en descripción
         if ($pattern_nombre !== ''){
-            $nombre_select = ' nombre LIKE \'%'.$pattern_nombre.'%\' ';
+            // $nombre_select = ' nombre LIKE \'%'.$pattern_nombre.'%\' ';
+            $nombre_select = ' (nombre LIKE \'%'.$pattern_nombre.'%\' OR descripcion LIKE \'%'.$pattern_nombre.'%\' ) ';
         }else{
             $nombre_select = '';
         }
